@@ -138,6 +138,17 @@ export async function createCalendarEvent(event: Omit<CalendarEvent, 'id' | 'cre
     return data as CalendarEvent;
 }
 
+export async function updateCalendarEvent(id: string, event: Partial<CalendarEvent>) {
+    const { data, error } = await supabase
+        .from('calendar_events')
+        .update(event)
+        .eq('id', id)
+        .select()
+        .single();
+    if (error) throw error;
+    return data as CalendarEvent;
+}
+
 export async function deleteCalendarEvent(id: string) {
     const { error } = await supabase.from('calendar_events').delete().eq('id', id);
     if (error) throw error;

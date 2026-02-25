@@ -18,6 +18,7 @@ const STAGES: { id: DealStage; title: string; color: string }[] = [
 
 export default function PipelinePage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
     const queryClient = useQueryClient();
 
     // Queries
@@ -47,6 +48,14 @@ export default function PipelinePage() {
         },
         onSettled: () => {
             queryClient.invalidateQueries({ queryKey: ['deals'] });
+        },
+    });
+
+    const updateDealMutation = useMutation({
+        mutationFn: ({ id, data }: { id: string; data: Partial<Deal> }) => updateDeal(id, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['deals'] });
+            setEditingDeal(null);
         },
     });
 
@@ -158,7 +167,10 @@ export default function PipelinePage() {
                                                                     <h4 className="text-sm font-bold text-[var(--color-text-primary)] group-hover:text-[var(--color-brand-400)] transition-colors">
                                                                         {deal.title}
                                                                     </h4>
-                                                                    <button className="rounded-lg p-1 text-[var(--color-text-muted)] hover:bg-[var(--color-surface-700)]">
+                                                                    <button
+                                                                        onClick={() => setEditingDeal(deal)}
+                                                                        className="rounded-lg p-1 text-[var(--color-text-muted)] hover:bg-[var(--color-surface-700)]"
+                                                                    >
                                                                         <MoreHorizontal className="h-4 w-4" />
                                                                     </button>
                                                                 </div>
@@ -236,6 +248,83 @@ export default function PipelinePage() {
                                     className="flex-1 glow-gradient rounded-xl py-2.5 text-sm font-semibold text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
                                 >
                                     {createMutation.isPending ? 'Creating...' : 'Create Deal'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Deal Modal */}
+            {editingDeal && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
+                    <div className="glass-card w-full max-w-md p-8 animate-fade-in shadow-2xl flex flex-col max-h-[90vh]">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-xl font-bold">Edit Deal</h2>
+                            <button onClick={() => setEditingDeal(null)} className="rounded-lg p-1 text-[var(--color-text-muted)] hover:bg-[var(--color-surface-600)] transition-colors">
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        <form
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                const formData = new FormData(e.currentTarget);
+                                updateDealMutation.mutate({
+                                    id: editingDeal.id,
+                                    data: {
+                                        title: formData.get('title') as string,
+                                        lead_id: formData.get('lead_id') as string,
+                                        value: Number(formData.get('value')),
+                                        stage: formData.get('stage') as DealStage,
+                                        expected_close_date: formData.get('expected_close_date') as string,
+                                    }
+                                });
+                            }}
+                            className="space-y-4"
+                        >
+                            <div>
+                                <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">Deal Title</label>
+                                <input name="title" required defaultValue={editingDeal.title} className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none" />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">Associated Lead</label>
+                                <select name="lead_id" required defaultValue={editingDeal.lead_id} className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none">
+                                    {leads?.map(l => (
+                                        <option key={l.id} value={l.id}>{l.first_name} {l.last_name} ({l.company})</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">Value ($)</label>
+                                    <input name="value" type="number" required defaultValue={editingDeal.value} className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">Stage</label>
+                                    <select name="stage" required defaultValue={editingDeal.stage} className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none">
+                                        {STAGES.map(s => (
+                                            <option key={s.id} value={s.id}>{s.title}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">Expected Close Date</label>
+                                <input name="expected_close_date" type="date" required defaultValue={editingDeal.expected_close_date ? new Date(editingDeal.expected_close_date).toISOString().split('T')[0] : ''} className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none" />
+                            </div>
+
+                            <div className="pt-4 flex gap-3">
+                                <button type="button" onClick={() => setEditingDeal(null)} className="flex-1 rounded-xl bg-[var(--color-surface-700)] py-2.5 text-sm font-semibold hover:bg-[var(--color-surface-600)] transition-all">Cancel</button>
+                                <button
+                                    type="submit"
+                                    disabled={updateDealMutation.isPending}
+                                    className="flex-1 glow-gradient rounded-xl py-2.5 text-sm font-semibold text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+                                >
+                                    {updateDealMutation.isPending ? 'Saving...' : 'Save Changes'}
                                 </button>
                             </div>
                         </form>

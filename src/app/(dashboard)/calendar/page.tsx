@@ -13,14 +13,24 @@ import {
     Loader2,
     X,
     Trash2,
+    Pencil,
 } from 'lucide-react';
-import { getCalendarEvents, getLeads, createCalendarEvent, deleteCalendarEvent } from '@/lib/supabase/queries';
+import { getCalendarEvents, getLeads, createCalendarEvent, deleteCalendarEvent, updateCalendarEvent } from '@/lib/supabase/queries';
 import { CalendarEvent } from '@/lib/types';
+
+const typeColors: Record<string, string> = {
+    demo: 'bg-green-500/15 text-green-400 border-green-500/30',
+    meeting: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
+    follow_up: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30',
+    call: 'bg-red-500/15 text-red-400 border-red-500/30',
+    other: 'bg-gray-500/15 text-gray-400 border-gray-500/30',
+};
 
 export default function CalendarPage() {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
 
     const queryClient = useQueryClient();
 
@@ -36,6 +46,14 @@ export default function CalendarPage() {
     });
 
     // Mutations
+    const updateMutation = useMutation({
+        mutationFn: ({ id, data }: { id: string; data: Partial<CalendarEvent> }) => updateCalendarEvent(id, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
+            setEditingEvent(null);
+        },
+    });
+
     const createMutation = useMutation({
         mutationFn: createCalendarEvent,
         onSuccess: () => {
@@ -171,8 +189,8 @@ export default function CalendarPage() {
                                     <div className="flex justify-end p-2">
                                         <span
                                             className={`text-xs font-bold leading-none ${isToday
-                                                    ? 'flex h-6 w-6 items-center justify-center rounded-full bg-[var(--color-brand-600)] text-white'
-                                                    : 'text-[var(--color-text-muted)]'
+                                                ? 'flex h-6 w-6 items-center justify-center rounded-full bg-[var(--color-brand-600)] text-white'
+                                                : 'text-[var(--color-text-muted)]'
                                                 }`}
                                         >
                                             {day}
@@ -212,18 +230,29 @@ export default function CalendarPage() {
                             dayEvents(selectedDate.getDate()).map((event) => (
                                 <div key={event.id} className="group glass-card overflow-hidden bg-[var(--color-surface-700)] p-4 transition-all hover:bg-[var(--color-surface-600)]">
                                     <div className="mb-2 flex items-center justify-between">
-                                        <span className={`badge badge-${event.event_type === 'demo' ? 'won' : 'contacted'} text-[10px] lowercase`}>
+                                        <span className={`badge border text-[10px] lowercase ${typeColors[event.event_type] || typeColors.other}`}>
                                             {event.event_type.replace('_', ' ')}
                                         </span>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                if (confirm('Delete event?')) deleteMutation.mutate(event.id);
-                                            }}
-                                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-red-400 hover:bg-red-500/10 rounded"
-                                        >
-                                            <Trash2 className="h-3 w-3" />
-                                        </button>
+                                        <div className="flex items-center gap-1">
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setEditingEvent(event);
+                                                }}
+                                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-blue-400 hover:bg-blue-500/10 rounded"
+                                            >
+                                                <Pencil className="h-3 w-3" />
+                                            </button>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (confirm('Delete event?')) deleteMutation.mutate(event.id);
+                                                }}
+                                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-red-400 hover:bg-red-500/10 rounded"
+                                            >
+                                                <Trash2 className="h-3 w-3" />
+                                            </button>
+                                        </div>
                                     </div>
                                     <h4 className="text-sm font-bold text-[var(--color-text-primary)] mb-2">{event.title}</h4>
                                     <div className="space-y-1.5">
@@ -259,26 +288,58 @@ export default function CalendarPage() {
                 </div>
             </div>
 
-            {/* New Event Modal */}
-            {isModalOpen && (
+            {/* Schedule/Edit Event Modal */}
+            {(isModalOpen || editingEvent) && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
                     <div className="glass-card w-full max-w-md p-8 animate-fade-in shadow-2xl flex flex-col max-h-[90vh]">
                         <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-xl font-bold">Schedule Event</h2>
-                            <button onClick={() => setIsModalOpen(false)} className="rounded-lg p-1 text-[var(--color-text-muted)] hover:bg-[var(--color-surface-600)] transition-colors">
+                            <h2 className="text-xl font-bold">{editingEvent ? 'Edit Event' : 'Schedule Event'}</h2>
+                            <button onClick={() => { setIsModalOpen(false); setEditingEvent(null); }} className="rounded-lg p-1 text-[var(--color-text-muted)] hover:bg-[var(--color-surface-600)] transition-colors">
                                 <X className="h-5 w-5" />
                             </button>
                         </div>
 
-                        <form onSubmit={handleCreateEvent} className="space-y-4">
+                        <form
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                const formData = new FormData(e.currentTarget);
+                                const date = selectedDate || (editingEvent ? new Date(editingEvent.start_time) : new Date());
+                                const startTime = formData.get('start_time') as string;
+                                const endTime = formData.get('end_time') as string;
+
+                                const startDateTime = new Date(date);
+                                const [startH, startM] = startTime.split(':');
+                                startDateTime.setHours(Number(startH), Number(startM));
+
+                                const endDateTime = new Date(date);
+                                const [endH, endM] = endTime.split(':');
+                                endDateTime.setHours(Number(endH), Number(endM));
+
+                                const eventData = {
+                                    title: formData.get('title') as string,
+                                    description: formData.get('description') as string,
+                                    lead_id: formData.get('lead_id') as string || null,
+                                    start_time: startDateTime.toISOString(),
+                                    end_time: endDateTime.toISOString(),
+                                    event_type: formData.get('event_type') as any,
+                                };
+
+                                if (editingEvent) {
+                                    updateMutation.mutate({ id: editingEvent.id, data: eventData });
+                                } else {
+                                    createMutation.mutate(eventData);
+                                }
+                            }}
+                            className="space-y-4"
+                        >
                             <div>
                                 <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">Title</label>
-                                <input name="title" required placeholder="e.g. Coffee Meeting with David" className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none" />
+                                <input name="title" required defaultValue={editingEvent?.title} placeholder="e.g. Coffee Meeting with David" className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none" />
                             </div>
 
                             <div>
                                 <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">Type</label>
-                                <select name="event_type" required className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none">
+                                <select name="event_type" required defaultValue={editingEvent?.event_type || 'meeting'} className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none">
                                     <option value="follow_up">Follow Up</option>
                                     <option value="meeting">Meeting</option>
                                     <option value="call">Call</option>
@@ -289,7 +350,7 @@ export default function CalendarPage() {
 
                             <div>
                                 <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">Associated Lead (Optional)</label>
-                                <select name="lead_id" className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none">
+                                <select name="lead_id" defaultValue={editingEvent?.lead_id || ''} className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none">
                                     <option value="">None</option>
                                     {leads?.map(l => (
                                         <option key={l.id} value={l.id}>{l.first_name} {l.last_name}</option>
@@ -300,27 +361,27 @@ export default function CalendarPage() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">Start Time</label>
-                                    <input name="start_time" type="time" required className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none" />
+                                    <input name="start_time" type="time" required defaultValue={editingEvent ? new Date(editingEvent.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : ''} className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none" />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">End Time</label>
-                                    <input name="end_time" type="time" required className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none" />
+                                    <input name="end_time" type="time" required defaultValue={editingEvent ? new Date(editingEvent.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : ''} className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none" />
                                 </div>
                             </div>
 
                             <div>
                                 <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">Description</label>
-                                <textarea name="description" rows={3} className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none resize-none" />
+                                <textarea name="description" rows={3} defaultValue={editingEvent?.description} className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none resize-none" />
                             </div>
 
                             <div className="pt-4 flex gap-3">
-                                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 rounded-xl bg-[var(--color-surface-700)] py-2.5 text-sm font-semibold hover:bg-[var(--color-surface-600)] transition-all">Cancel</button>
+                                <button type="button" onClick={() => { setIsModalOpen(false); setEditingEvent(null); }} className="flex-1 rounded-xl bg-[var(--color-surface-700)] py-2.5 text-sm font-semibold hover:bg-[var(--color-surface-600)] transition-all">Cancel</button>
                                 <button
                                     type="submit"
-                                    disabled={createMutation.isPending}
+                                    disabled={createMutation.isPending || updateMutation.isPending}
                                     className="flex-1 glow-gradient rounded-xl py-2.5 text-sm font-semibold text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
                                 >
-                                    {createMutation.isPending ? 'Scheduling...' : 'Schedule'}
+                                    {createMutation.isPending || updateMutation.isPending ? 'Processing...' : (editingEvent ? 'Save Changes' : 'Schedule')}
                                 </button>
                             </div>
                         </form>

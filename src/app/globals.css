@@ -160,23 +160,33 @@ body {
 
 /* ─── Calendar event types ─── */
 .event-follow_up {
-  border-left: 3px solid #f59e0b;
+  border-left: 3px solid #eab308;
+  /* Yellow-500 */
+  background: rgba(234, 179, 8, 0.1);
 }
 
 .event-meeting {
-  border-left: 3px solid #6366f1;
+  border-left: 3px solid #3b82f6;
+  /* Blue-500 */
+  background: rgba(59, 130, 246, 0.1);
 }
 
 .event-call {
-  border-left: 3px solid #3b82f6;
+  border-left: 3px solid #ef4444;
+  /* Red-500 */
+  background: rgba(239, 68, 68, 0.1);
 }
 
 .event-demo {
-  border-left: 3px solid #8b5cf6;
+  border-left: 3px solid #22c55e;
+  /* Green-500 */
+  background: rgba(34, 197, 94, 0.1);
 }
 
 .event-other {
   border-left: 3px solid #6b7280;
+  /* Gray-500 */
+  background: rgba(107, 114, 128, 0.1);
 }
 
 /* ─── Animations ─── */
