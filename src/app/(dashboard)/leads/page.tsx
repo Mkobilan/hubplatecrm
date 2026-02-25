@@ -28,6 +28,15 @@ const statusBadgeMap: Record<LeadStatus, string> = {
     lost: 'badge-lost',
 };
 
+const statusColorMap: Record<LeadStatus, string> = {
+    new: 'bg-blue-500/10 text-blue-400',
+    contacted: 'bg-purple-500/10 text-purple-400',
+    qualified: 'bg-amber-500/10 text-amber-400',
+    proposal: 'bg-indigo-500/10 text-indigo-400',
+    won: 'bg-emerald-500/10 text-emerald-400',
+    lost: 'bg-red-500/10 text-red-400',
+};
+
 export default function LeadsPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<LeadStatus | 'all'>('all');
@@ -128,8 +137,8 @@ export default function LeadsPage() {
                             key={status}
                             onClick={() => setStatusFilter(status)}
                             className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${statusFilter === status
-                                    ? 'bg-[var(--color-brand-600)] text-white shadow-lg shadow-[var(--color-brand-500)]/20'
-                                    : 'bg-[var(--color-surface-700)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-600)] hover:text-[var(--color-text-primary)]'
+                                ? 'bg-[var(--color-brand-600)] text-white shadow-lg shadow-[var(--color-brand-500)]/20'
+                                : 'bg-[var(--color-surface-700)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-600)] hover:text-[var(--color-text-primary)]'
                                 }`}
                         >
                             {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -165,7 +174,7 @@ export default function LeadsPage() {
                                     >
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
-                                                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--color-brand-600)]/10 text-[var(--color-brand-400)] font-bold">
+                                                <div className={`flex h-9 w-9 items-center justify-center rounded-xl font-bold ${statusColorMap[lead.status]}`}>
                                                     {lead.first_name[0]}{lead.last_name[0]}
                                                 </div>
                                                 <div>
@@ -218,7 +227,7 @@ export default function LeadsPage() {
                     >
                         <div className="mb-8 flex items-center justify-between">
                             <div className="flex items-center gap-4">
-                                <div className="h-14 w-14 flex items-center justify-center rounded-2xl bg-[var(--color-brand-600)]/15 text-xl font-bold text-[var(--color-brand-400)]">
+                                <div className={`h-14 w-14 flex items-center justify-center rounded-2xl text-xl font-bold ${statusColorMap[selectedLead.status]}`}>
                                     {selectedLead.first_name[0]}{selectedLead.last_name[0]}
                                 </div>
                                 <div>

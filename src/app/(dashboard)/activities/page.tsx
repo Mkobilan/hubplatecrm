@@ -30,6 +30,14 @@ const typeIcons: Record<ActivityType, any> = {
     task: CheckSquare,
 };
 
+const typeColors: Record<ActivityType, string> = {
+    call: 'text-blue-400 bg-blue-500/10 border-blue-500/30',
+    email: 'text-purple-400 bg-purple-500/10 border-purple-500/30',
+    meeting: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
+    note: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
+    task: 'text-rose-400 bg-rose-500/10 border-rose-500/30',
+};
+
 export default function ActivitiesPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [typeFilter, setTypeFilter] = useState<ActivityType | 'all'>('all');
@@ -127,13 +135,15 @@ export default function ActivitiesPage() {
                 </div>
                 <div className="flex items-center gap-2">
                     <Filter className="h-4 w-4 text-[var(--color-text-muted)] ml-2" />
-                    {(['all', 'call', 'email', 'meeting', 'task'] as const).map((type) => (
+                    {(['all', 'call', 'email', 'meeting', 'task', 'note'] as const).map((type) => (
                         <button
                             key={type}
                             onClick={() => setTypeFilter(type)}
                             className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${typeFilter === type
-                                    ? 'bg-[var(--color-surface-600)] text-[var(--color-brand-400)] border border-[var(--color-brand-500)]/30'
-                                    : 'bg-[var(--color-surface-700)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-600)]'
+                                ? type === 'all'
+                                    ? 'bg-[var(--color-brand-600)] text-white shadow-lg shadow-[var(--color-brand-500)]/20'
+                                    : `${typeColors[type]} border`
+                                : 'bg-[var(--color-surface-700)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-600)]'
                                 }`}
                         >
                             {type.charAt(0).toUpperCase() + type.slice(1)}
@@ -165,7 +175,9 @@ export default function ActivitiesPage() {
                                     {activity.completed ? <CheckCircle2 className="h-6 w-6" /> : <Circle className="h-6 w-6" />}
                                 </button>
 
-                                <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[var(--color-surface-700)] ${activity.completed ? 'text-gray-500' : 'text-[var(--color-brand-400)]'
+                                <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl ${activity.completed
+                                    ? 'bg-[var(--color-surface-700)] text-gray-500'
+                                    : typeColors[activity.type].split(' ')[1] + ' ' + typeColors[activity.type].split(' ')[0]
                                     }`}>
                                     <Icon className="h-5 w-5" />
                                 </div>

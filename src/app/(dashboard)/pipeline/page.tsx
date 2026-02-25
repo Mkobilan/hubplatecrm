@@ -8,12 +8,12 @@ import { getDeals, updateDeal, createDeal, getLeads } from '@/lib/supabase/queri
 import { Deal, DealStage } from '@/lib/types';
 
 const STAGES: { id: DealStage; title: string; color: string }[] = [
-    { id: 'prospect', title: 'Prospecting', color: 'border-blue-500/50' },
-    { id: 'qualified', title: 'Qualified', color: 'border-amber-500/50' },
-    { id: 'proposal', title: 'Proposal', color: 'border-purple-500/50' },
-    { id: 'negotiation', title: 'Negotiation', color: 'border-cyan-500/50' },
-    { id: 'won', title: 'Won', color: 'border-green-500/50' },
-    { id: 'lost', title: 'Lost', color: 'border-red-500/50' },
+    { id: 'prospect', title: 'Prospecting', color: 'border-blue-500' },
+    { id: 'qualified', title: 'Qualified', color: 'border-amber-500' },
+    { id: 'proposal', title: 'Proposal', color: 'border-purple-500' },
+    { id: 'negotiation', title: 'Negotiation', color: 'border-cyan-500' },
+    { id: 'won', title: 'Won', color: 'border-green-500' },
+    { id: 'lost', title: 'Lost', color: 'border-red-500' },
 ];
 
 export default function PipelinePage() {
@@ -125,6 +125,7 @@ export default function PipelinePage() {
                                 <div key={stage.id} className="flex h-full w-72 flex-col gap-3 rounded-2xl bg-black/20 p-3">
                                     <div className="flex items-center justify-between px-2">
                                         <div className="flex items-center gap-2">
+                                            <div className={`h-2 w-2 rounded-full ${stage.color.replace('border-', 'bg-')}`} />
                                             <h3 className="text-xs font-bold uppercase tracking-widest text-[var(--color-text-primary)]">
                                                 {stage.title}
                                             </h3>

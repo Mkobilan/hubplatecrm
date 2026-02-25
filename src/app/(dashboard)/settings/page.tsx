@@ -37,13 +37,6 @@ export default function SettingsPage() {
         loadProfile();
     }, [supabase]);
 
-    const updateProfile = async (id: string, updates: { full_name?: string; role?: string; team?: string }) => {
-        const { error } = await supabase
-            .from('profiles')
-            .update(updates)
-            .eq('id', id);
-        if (error) throw error;
-    };
 
     const handleSave = async () => {
         if (!userId || !profile) return;

@@ -183,7 +183,12 @@ export default function DashboardPage() {
                                                 : 'No date'}
                                         </p>
                                     </div>
-                                    <span className={`badge badge-${activity.type === 'call' ? 'new' : activity.type === 'email' ? 'contacted' : 'qualified'}`}>
+                                    <span className={`badge text-[10px] ${activity.type === 'call' ? 'bg-blue-500/15 text-blue-400' :
+                                            activity.type === 'email' ? 'bg-purple-500/15 text-purple-400' :
+                                                activity.type === 'meeting' ? 'bg-emerald-500/15 text-emerald-400' :
+                                                    activity.type === 'task' ? 'bg-rose-500/15 text-rose-400' :
+                                                        'bg-amber-500/15 text-amber-400'
+                                        }`}>
                                         {activity.type}
                                     </span>
                                 </div>
