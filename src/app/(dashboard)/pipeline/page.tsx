@@ -48,6 +48,7 @@ export default function PipelinePage() {
         },
         onSettled: () => {
             queryClient.invalidateQueries({ queryKey: ['deals'] });
+            queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
         },
     });
 
@@ -55,6 +56,7 @@ export default function PipelinePage() {
         mutationFn: ({ id, data }: { id: string; data: Partial<Deal> }) => updateDeal(id, data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['deals'] });
+            queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
             setEditingDeal(null);
         },
     });
@@ -63,6 +65,7 @@ export default function PipelinePage() {
         mutationFn: createDeal,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['deals'] });
+            queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
             setIsModalOpen(false);
         },
     });

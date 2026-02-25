@@ -66,13 +66,20 @@ export default function DashboardPage() {
 
     const firstName = profile?.full_name?.split(' ')[0];
 
+    const formatCurrency = (val: number) => {
+        if (val === 0) return '$0';
+        if (val >= 1000000) return `$${(val / 1000000).toFixed(1)}M`;
+        if (val >= 1000) return `$${(val / 1000).toFixed(1)}k`;
+        return `$${val.toLocaleString()}`;
+    };
+
     const statItems = [
         { label: 'Total Leads', value: stats?.totalLeads || 0, icon: Users, color: 'text-blue-400', bg: 'bg-blue-500/10' },
         { label: 'New This Week', value: stats?.newLeadsThisWeek || 0, icon: Sparkles, color: 'text-purple-400', bg: 'bg-purple-500/10' },
         { label: 'Active Deals', value: stats?.totalDeals || 0, icon: TrendingUp, color: 'text-amber-400', bg: 'bg-amber-500/10' },
-        { label: 'Pipeline Value', value: `$${((stats?.totalPipelineValue || 0) / 1000).toFixed(0)}k`, icon: DollarSign, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+        { label: 'Pipeline Value', value: formatCurrency(stats?.totalPipelineValue || 0), icon: DollarSign, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
         { label: 'Won Deals', value: stats?.wonDeals || 0, icon: Trophy, color: 'text-green-400', bg: 'bg-green-500/10' },
-        { label: 'Won Value', value: `$${((stats?.wonValue || 0) / 1000).toFixed(0)}k`, icon: DollarSign, color: 'text-teal-400', bg: 'bg-teal-500/10' },
+        { label: 'Won Value', value: formatCurrency(stats?.wonValue || 0), icon: DollarSign, color: 'text-teal-400', bg: 'bg-teal-500/10' },
         { label: 'Activities', value: stats?.activitiesThisWeek || 0, icon: Activity, color: 'text-rose-400', bg: 'bg-rose-500/10' },
         { label: 'Upcoming Events', value: stats?.upcomingEvents || 0, icon: CalendarCheck, color: 'text-indigo-400', bg: 'bg-indigo-500/10' },
     ];
