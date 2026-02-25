@@ -11,8 +11,8 @@
 -- ───────────────────────────── ENUMS ─────────────────────────
 CREATE TYPE lead_status   AS ENUM ('new','contacted','qualified','proposal','won','lost');
 CREATE TYPE deal_stage    AS ENUM ('prospect','qualified','proposal','negotiation','won','lost');
-CREATE TYPE activity_type AS ENUM ('call','email','meeting','note','task');
-CREATE TYPE event_type    AS ENUM ('follow_up','meeting','call','demo','other');
+CREATE TYPE activity_type AS ENUM ('call','email','meeting','note','task','onboarding');
+CREATE TYPE event_type    AS ENUM ('follow_up','meeting','call','demo','other','onboarding');
 
 
 -- ───────────────────────────── PROFILES ──────────────────────

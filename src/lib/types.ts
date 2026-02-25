@@ -33,12 +33,12 @@ export interface Deal {
     lead?: Lead;
 }
 
-export type ActivityType = 'call' | 'email' | 'meeting' | 'note' | 'task';
+export type ActivityType = 'call' | 'email' | 'meeting' | 'note' | 'task' | 'onboarding';
 
 export interface Activity {
     id: string;
     user_id: string;
-    lead_id: string;
+    lead_id: string | null;
     type: ActivityType;
     title: string;
     description: string;
@@ -56,7 +56,7 @@ export interface CalendarEvent {
     description: string;
     start_time: string;
     end_time: string;
-    event_type: 'follow_up' | 'meeting' | 'call' | 'demo' | 'other';
+    event_type: 'follow_up' | 'meeting' | 'call' | 'demo' | 'other' | 'onboarding';
     created_at: string;
     lead?: Lead;
 }

@@ -23,6 +23,7 @@ const typeColors: Record<string, string> = {
     meeting: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
     follow_up: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30',
     call: 'bg-red-500/15 text-red-400 border-red-500/30',
+    onboarding: 'bg-pink-500/15 text-pink-400 border-pink-500/30',
     other: 'bg-gray-500/15 text-gray-400 border-gray-500/30',
 };
 
@@ -344,6 +345,7 @@ export default function CalendarPage() {
                                     <option value="meeting">Meeting</option>
                                     <option value="call">Call</option>
                                     <option value="demo">Demo</option>
+                                    <option value="onboarding">Onboarding</option>
                                     <option value="other">Other</option>
                                 </select>
                             </div>

@@ -18,6 +18,8 @@ import {
     Loader2,
     X,
     Trash2,
+    Pencil,
+    Rocket,
 } from 'lucide-react';
 import { getActivities, getLeads, updateActivity, createActivity, deleteActivity } from '@/lib/supabase/queries';
 import { Activity, ActivityType } from '@/lib/types';
@@ -28,6 +30,7 @@ const typeIcons: Record<ActivityType, any> = {
     meeting: Video,
     note: FileText,
     task: CheckSquare,
+    onboarding: Rocket,
 };
 
 const typeColors: Record<ActivityType, string> = {
@@ -36,6 +39,7 @@ const typeColors: Record<ActivityType, string> = {
     meeting: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
     note: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
     task: 'text-rose-400 bg-rose-500/10 border-rose-500/30',
+    onboarding: 'text-pink-400 bg-pink-500/10 border-pink-500/30',
 };
 
 export default function ActivitiesPage() {
@@ -43,6 +47,7 @@ export default function ActivitiesPage() {
     const [typeFilter, setTypeFilter] = useState<ActivityType | 'all'>('all');
     const [isVisible, setIsVisible] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
 
     const queryClient = useQueryClient();
 
@@ -135,7 +140,7 @@ export default function ActivitiesPage() {
                 </div>
                 <div className="flex items-center gap-2">
                     <Filter className="h-4 w-4 text-[var(--color-text-muted)] ml-2" />
-                    {(['all', 'call', 'email', 'meeting', 'task', 'note'] as const).map((type) => (
+                    {(['all', 'call', 'email', 'meeting', 'task', 'note', 'onboarding'] as const).map((type) => (
                         <button
                             key={type}
                             onClick={() => setTypeFilter(type)}
@@ -203,15 +208,24 @@ export default function ActivitiesPage() {
 
                                 <div className="flex items-center gap-2">
                                     <button
-                                        onClick={() => {
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setEditingActivity(activity);
+                                        }}
+                                        className="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-blue-400 hover:bg-blue-500/10 rounded-lg"
+                                        title="Edit Activity"
+                                    >
+                                        <Pencil className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
                                             if (confirm('Delete activity?')) deleteMutation.mutate(activity.id);
                                         }}
                                         className="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-red-400 hover:bg-red-500/10 rounded-lg"
+                                        title="Delete Activity"
                                     >
                                         <Trash2 className="h-4 w-4" />
-                                    </button>
-                                    <button className="rounded-lg p-2 text-[var(--color-text-muted)] hover:bg-[var(--color-surface-600)]">
-                                        <MoreVertical className="h-5 w-5" />
                                     </button>
                                 </div>
                             </div>
@@ -226,37 +240,67 @@ export default function ActivitiesPage() {
                 )}
             </div>
 
-            {/* Log Activity Modal */}
-            {isModalOpen && (
+            {/* Log/Edit Activity Modal */}
+            {(isModalOpen || editingActivity) && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
                     <div className="glass-card w-full max-w-md p-8 animate-fade-in shadow-2xl flex flex-col max-h-[90vh]">
                         <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-xl font-bold">Log Activity</h2>
-                            <button onClick={() => setIsModalOpen(false)} className="rounded-lg p-1 text-[var(--color-text-muted)] hover:bg-[var(--color-surface-600)] transition-colors">
+                            <h2 className="text-xl font-bold">{editingActivity ? 'Edit Activity' : 'Log Activity'}</h2>
+                            <button
+                                onClick={() => {
+                                    setIsModalOpen(false);
+                                    setEditingActivity(null);
+                                }}
+                                className="rounded-lg p-1 text-[var(--color-text-muted)] hover:bg-[var(--color-surface-600)] transition-colors"
+                            >
                                 <X className="h-5 w-5" />
                             </button>
                         </div>
 
-                        <form onSubmit={handleCreateActivity} className="space-y-4">
+                        <form
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                const formData = new FormData(e.currentTarget);
+                                const scheduledAt = formData.get('scheduled_at') as string;
+                                const activityData = {
+                                    title: formData.get('title') as string,
+                                    type: formData.get('type') as ActivityType,
+                                    lead_id: formData.get('lead_id') as string || null,
+                                    description: formData.get('description') as string,
+                                    scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
+                                };
+
+                                if (editingActivity) {
+                                    updateMutation.mutate({
+                                        id: editingActivity.id,
+                                        data: activityData
+                                    });
+                                } else {
+                                    handleCreateActivity(e);
+                                }
+                            }}
+                            className="space-y-4"
+                        >
                             <div>
                                 <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">Activity Title</label>
-                                <input name="title" required placeholder="e.g. Follow up on proposal" className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none" />
+                                <input name="title" required defaultValue={editingActivity?.title} placeholder="e.g. Follow up on proposal" className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none" />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">Type</label>
-                                    <select name="type" required className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none">
+                                    <select name="type" required defaultValue={editingActivity?.type || 'call'} className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none">
                                         <option value="call">Call</option>
                                         <option value="email">Email</option>
                                         <option value="meeting">Meeting</option>
+                                        <option value="onboarding">Onboarding</option>
                                         <option value="task">Task</option>
                                         <option value="note">Note</option>
                                     </select>
                                 </div>
                                 <div>
                                     <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">Associated Lead</label>
-                                    <select name="lead_id" className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none">
+                                    <select name="lead_id" defaultValue={editingActivity?.lead_id || ''} className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none">
                                         <option value="">None</option>
                                         {leads?.map(l => (
                                             <option key={l.id} value={l.id}>{l.first_name} {l.last_name}</option>
@@ -267,22 +311,31 @@ export default function ActivitiesPage() {
 
                             <div>
                                 <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">Scheduled For</label>
-                                <input name="scheduled_at" type="datetime-local" className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none" />
+                                <input name="scheduled_at" type="datetime-local" defaultValue={editingActivity?.scheduled_at ? new Date(editingActivity.scheduled_at).toISOString().slice(0, 16) : ''} className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none" />
                             </div>
 
                             <div>
                                 <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">Description</label>
-                                <textarea name="description" rows={3} className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none resize-none" />
+                                <textarea name="description" rows={3} defaultValue={editingActivity?.description} className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none resize-none" />
                             </div>
 
                             <div className="pt-4 flex gap-3">
-                                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 rounded-xl bg-[var(--color-surface-700)] py-2.5 text-sm font-semibold hover:bg-[var(--color-surface-600)] transition-all">Cancel</button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsModalOpen(false);
+                                        setEditingActivity(null);
+                                    }}
+                                    className="flex-1 rounded-xl bg-[var(--color-surface-700)] py-2.5 text-sm font-semibold hover:bg-[var(--color-surface-600)] transition-all"
+                                >
+                                    Cancel
+                                </button>
                                 <button
                                     type="submit"
-                                    disabled={createMutation.isPending}
+                                    disabled={createMutation.isPending || updateMutation.isPending}
                                     className="flex-1 glow-gradient rounded-xl py-2.5 text-sm font-semibold text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
                                 >
-                                    {createMutation.isPending ? 'Logging...' : 'Log Activity'}
+                                    {createMutation.isPending || updateMutation.isPending ? 'Processing...' : (editingActivity ? 'Save Changes' : 'Log Activity')}
                                 </button>
                             </div>
                         </form>
