@@ -138,7 +138,7 @@ export default function PipelinePage() {
                                     <Droppable droppableId={stage.id}>
                                         {(provided, snapshot) => (
                                             <div
-                                                {...provided.droppableId}
+                                                {...provided.droppableProps}
                                                 ref={provided.innerRef}
                                                 className={`flex flex-1 flex-col gap-3 rounded-xl transition-colors ${snapshot.isDraggingOver ? 'bg-white/5' : ''
                                                     }`}
