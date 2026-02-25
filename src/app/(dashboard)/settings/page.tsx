@@ -1,8 +1,45 @@
 'use client';
 
-import { Settings, User, Bell, Shield, Palette } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { Settings, User, Bell, Shield, Palette, Loader2 } from 'lucide-react';
 
 export default function SettingsPage() {
+    const [profile, setProfile] = useState<{ full_name: string; email: string; role: string; team: string } | null>(null);
+    const [loading, setLoading] = useState(true);
+    const supabase = createClient();
+
+    useEffect(() => {
+        async function loadProfile() {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                // Fetch profile from our profiles table
+                const { data: profileData } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', user.id)
+                    .single();
+
+                setProfile({
+                    full_name: profileData?.full_name || user.user_metadata?.full_name || 'Sales Rep',
+                    email: user.email || '',
+                    role: profileData?.role || 'Sales Representative',
+                    team: profileData?.team || 'General Sales',
+                });
+            }
+            setLoading(false);
+        }
+        loadProfile();
+    }, [supabase]);
+
+    if (loading) {
+        return (
+            <div className="flex h-full items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-[var(--color-brand-500)]" />
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-8 animate-fade-in max-w-3xl">
             <div>
@@ -20,17 +57,18 @@ export default function SettingsPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                     {[
-                        { label: 'Full Name', val: 'Demo User' },
-                        { label: 'Email', val: 'demo@hubplate.app' },
-                        { label: 'Role', val: 'Sales Representative' },
-                        { label: 'Team', val: 'Enterprise Sales' },
+                        { label: 'Full Name', val: profile?.full_name },
+                        { label: 'Email', val: profile?.email },
+                        { label: 'Role', val: profile?.role },
+                        { label: 'Team', val: profile?.team },
                     ].map(({ label, val }) => (
                         <div key={label}>
                             <label className="mb-1 block text-xs text-[var(--color-text-muted)]">{label}</label>
                             <input
                                 type="text"
                                 defaultValue={val}
-                                className="w-full rounded-lg border border-[var(--color-glass-border)] bg-[var(--color-surface-700)] py-2 px-3 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-500)] transition-colors"
+                                disabled={label === 'Email'}
+                                className="w-full rounded-lg border border-[var(--color-glass-border)] bg-[var(--color-surface-700)] py-2 px-3 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-500)] transition-colors disabled:opacity-50"
                             />
                         </div>
                     ))}
@@ -83,24 +121,6 @@ export default function SettingsPage() {
                         <div className="mx-auto mb-2 h-8 w-8 rounded-lg bg-gray-300" />
                         <p className="text-sm font-medium text-gray-700">Light</p>
                         <p className="text-xs text-gray-400">Coming soon</p>
-                    </button>
-                </div>
-            </div>
-
-            {/* Security */}
-            <div className="glass-card p-6">
-                <div className="flex items-center gap-3 mb-6">
-                    <div className="rounded-xl bg-red-500/15 p-2.5">
-                        <Shield className="h-5 w-5 text-red-400" />
-                    </div>
-                    <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Security</h2>
-                </div>
-                <div className="space-y-3">
-                    <button className="w-full rounded-xl bg-[var(--color-surface-700)] p-4 text-left text-sm font-medium text-[var(--color-text-primary)] transition-all hover:bg-[var(--color-surface-600)]">
-                        Change Password
-                    </button>
-                    <button className="w-full rounded-xl bg-[var(--color-surface-700)] p-4 text-left text-sm font-medium text-[var(--color-text-primary)] transition-all hover:bg-[var(--color-surface-600)]">
-                        Enable Two-Factor Authentication
                     </button>
                 </div>
             </div>

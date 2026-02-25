@@ -1,248 +1,243 @@
 'use client';
 
 import { useState } from 'react';
-import {
-    DragDropContext,
-    Droppable,
-    Draggable,
-    DropResult,
-} from '@hello-pangea/dnd';
-import { DollarSign, GripVertical, Plus, X, Calendar } from 'lucide-react';
-import { demoDeals, demoLeads } from '@/lib/demo-data';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+import { Plus, DollarSign, MoreHorizontal, User, Calendar, Loader2, X } from 'lucide-react';
+import { getDeals, updateDeal, createDeal, getLeads } from '@/lib/supabase/queries';
 import { Deal, DealStage } from '@/lib/types';
 
-const stages: { key: DealStage; label: string; className: string }[] = [
-    { key: 'prospect', label: 'Prospect', className: 'stage-prospect' },
-    { key: 'qualified', label: 'Qualified', className: 'stage-qualified' },
-    { key: 'proposal', label: 'Proposal', className: 'stage-proposal' },
-    { key: 'negotiation', label: 'Negotiation', className: 'stage-negotiation' },
-    { key: 'won', label: 'Won', className: 'stage-won' },
-    { key: 'lost', label: 'Lost', className: 'stage-lost' },
+const STAGES: { id: DealStage; title: string; color: string }[] = [
+    { id: 'prospect', title: 'Prospecting', color: 'border-blue-500/50' },
+    { id: 'qualified', title: 'Qualified', color: 'border-amber-500/50' },
+    { id: 'proposal', title: 'Proposal', color: 'border-purple-500/50' },
+    { id: 'negotiation', title: 'Negotiation', color: 'border-cyan-500/50' },
+    { id: 'won', title: 'Won', color: 'border-green-500/50' },
+    { id: 'lost', title: 'Lost', color: 'border-red-500/50' },
 ];
 
 export default function PipelinePage() {
-    const [deals, setDeals] = useState<Deal[]>(demoDeals);
-    const [showModal, setShowModal] = useState(false);
-    const [form, setForm] = useState({
-        title: '', value: 0, stage: 'prospect' as DealStage,
-        lead_id: '', expected_close_date: '', notes: '',
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const queryClient = useQueryClient();
+
+    // Queries
+    const { data: deals, isLoading: dealsLoading } = useQuery({
+        queryKey: ['deals'],
+        queryFn: getDeals,
     });
 
-    function onDragEnd(result: DropResult) {
-        if (!result.destination) return;
-        const dealId = result.draggableId;
-        const newStage = result.destination.droppableId as DealStage;
-        setDeals((prev) =>
-            prev.map((d) => (d.id === dealId ? { ...d, stage: newStage, updated_at: new Date().toISOString() } : d))
+    const { data: leads } = useQuery({
+        queryKey: ['leads'],
+        queryFn: getLeads,
+    });
+
+    // Mutations
+    const updateStageMutation = useMutation({
+        mutationFn: ({ id, stage }: { id: string; stage: DealStage }) => updateDeal(id, { stage }),
+        onMutate: async ({ id, stage }) => {
+            await queryClient.cancelQueries({ queryKey: ['deals'] });
+            const previousDeals = queryClient.getQueryData(['deals']);
+            queryClient.setQueryData(['deals'], (old: Deal[] | undefined) =>
+                old?.map((d) => (d.id === id ? { ...d, stage } : d))
+            );
+            return { previousDeals };
+        },
+        onError: (err, variables, context) => {
+            queryClient.setQueryData(['deals'], context?.previousDeals);
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: ['deals'] });
+        },
+    });
+
+    const createMutation = useMutation({
+        mutationFn: createDeal,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['deals'] });
+            setIsModalOpen(false);
+        },
+    });
+
+    const onDragEnd = (result: DropResult) => {
+        const { destination, source, draggableId } = result;
+        if (!destination) return;
+        if (destination.droppableId === source.droppableId && destination.index === source.index) return;
+
+        updateStageMutation.mutate({
+            id: draggableId,
+            stage: destination.droppableId as DealStage,
+        });
+    };
+
+    const handleCreateDeal = (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        const formData = new FormData(e.currentTarget);
+        const newDeal = {
+            title: formData.get('title') as string,
+            lead_id: formData.get('lead_id') as string,
+            value: Number(formData.get('value')),
+            stage: 'prospect' as DealStage,
+            expected_close_date: formData.get('expected_close_date') as string,
+            notes: '',
+        };
+        createMutation.mutate(newDeal);
+    };
+
+    if (dealsLoading) {
+        return (
+            <div className="flex h-full items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-[var(--color-brand-500)]" />
+            </div>
         );
     }
 
-    function handleCreate() {
-        const newDeal: Deal = {
-            id: `deal-${Date.now()}`,
-            user_id: 'demo-user-001',
-            lead_id: form.lead_id,
-            title: form.title,
-            value: form.value,
-            stage: form.stage,
-            expected_close_date: form.expected_close_date,
-            notes: form.notes,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-        };
-        setDeals((prev) => [...prev, newDeal]);
-        setShowModal(false);
-        setForm({ title: '', value: 0, stage: 'prospect', lead_id: '', expected_close_date: '', notes: '' });
-    }
-
-    function getStageValue(stage: DealStage) {
-        return deals.filter((d) => d.stage === stage).reduce((sum, d) => sum + d.value, 0);
-    }
-
-    function getLeadName(leadId: string) {
-        const lead = demoLeads.find((l) => l.id === leadId);
-        return lead ? `${lead.first_name} ${lead.last_name}` : 'Unknown';
-    }
-
     return (
-        <div className="space-y-6 animate-fade-in">
-            {/* Header */}
-            <div className="flex items-center justify-between">
+        <div className="flex h-[calc(100vh-120px)] flex-col gap-6 animate-fade-in">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-[var(--color-text-primary)]">Pipeline</h1>
-                    <p className="text-[var(--color-text-secondary)]">
-                        Drag and drop deals across stages
-                    </p>
+                    <h1 className="text-3xl font-bold text-[var(--color-text-primary)]">Sales Pipeline</h1>
+                    <p className="text-[var(--color-text-secondary)]">Drag and drop deals between stages to update progress</p>
                 </div>
-                <button
-                    onClick={() => setShowModal(true)}
-                    className="glow-gradient flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition-all hover:scale-105 active:scale-95"
-                >
-                    <Plus className="h-4 w-4" /> New Deal
-                </button>
+                <div className="flex items-center gap-3">
+                    <div className="glass-card flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--color-text-muted)]">
+                        <DollarSign className="h-3.5 w-3.5 text-emerald-400" />
+                        Pipeline Value:
+                        <span className="font-bold text-white">${deals?.reduce((sum, d) => sum + Number(d.value), 0).toLocaleString()}</span>
+                    </div>
+                    <button
+                        onClick={() => setIsModalOpen(true)}
+                        className="glow-gradient flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white transition-all hover:scale-105 active:scale-95"
+                    >
+                        <Plus className="h-4 w-4" />
+                        New Deal
+                    </button>
+                </div>
             </div>
 
-            {/* Kanban Board */}
             <DragDropContext onDragEnd={onDragEnd}>
-                <div className="grid grid-cols-6 gap-4 overflow-x-auto pb-4">
-                    {stages.map((stage) => {
-                        const stageDeals = deals.filter((d) => d.stage === stage.key);
-                        const totalValue = getStageValue(stage.key);
-                        return (
-                            <Droppable droppableId={stage.key} key={stage.key}>
-                                {(provided, snapshot) => (
-                                    <div
-                                        ref={provided.innerRef}
-                                        {...provided.droppableProps}
-                                        className={`glass-card ${stage.className} min-h-[500px] rounded-2xl p-4 transition-all ${snapshot.isDraggingOver ? 'ring-2 ring-[var(--color-brand-500)]/50 bg-[var(--color-glass-hover)]' : ''
-                                            }`}
-                                    >
-                                        <div className="mb-4">
-                                            <div className="flex items-center justify-between">
-                                                <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
-                                                    {stage.label}
-                                                </h3>
-                                                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--color-surface-500)] text-xs text-[var(--color-text-muted)]">
-                                                    {stageDeals.length}
-                                                </span>
-                                            </div>
-                                            <p className="mt-1 text-xs text-[var(--color-text-muted)]">
-                                                ${totalValue.toLocaleString()}
-                                            </p>
-                                        </div>
+                <div className="flex-1 overflow-x-auto pb-4 custom-scrollbar">
+                    <div className="flex h-full min-w-max gap-4 px-1">
+                        {STAGES.map((stage) => {
+                            const stageDeals = deals?.filter((d) => d.stage === stage.id) || [];
+                            const stageValue = stageDeals.reduce((sum, d) => sum + Number(d.value), 0);
 
-                                        <div className="space-y-3">
-                                            {stageDeals.map((deal, index) => (
-                                                <Draggable key={deal.id} draggableId={deal.id} index={index}>
-                                                    {(provided, snapshot) => (
-                                                        <div
-                                                            ref={provided.innerRef}
-                                                            {...provided.draggableProps}
-                                                            {...provided.dragHandleProps}
-                                                            className={`rounded-xl bg-[var(--color-surface-700)] p-4 transition-all hover:bg-[var(--color-surface-600)] ${snapshot.isDragging ? 'shadow-2xl ring-2 ring-[var(--color-brand-500)] rotate-2' : ''
-                                                                }`}
-                                                        >
-                                                            <div className="flex items-start gap-2">
-                                                                <GripVertical className="mt-0.5 h-4 w-4 flex-shrink-0 text-[var(--color-text-muted)]" />
-                                                                <div className="flex-1 min-w-0">
-                                                                    <p className="text-sm font-medium text-[var(--color-text-primary)] truncate">
+                            return (
+                                <div key={stage.id} className="flex h-full w-72 flex-col gap-3 rounded-2xl bg-black/20 p-3">
+                                    <div className="flex items-center justify-between px-2">
+                                        <div className="flex items-center gap-2">
+                                            <h3 className="text-xs font-bold uppercase tracking-widest text-[var(--color-text-primary)]">
+                                                {stage.title}
+                                            </h3>
+                                            <span className="rounded-full bg-[var(--color-surface-600)] px-2 py-0.5 text-[10px] font-bold text-[var(--color-text-muted)]">
+                                                {stageDeals.length}
+                                            </span>
+                                        </div>
+                                        <p className="text-[10px] font-bold text-emerald-400/80">${(stageValue / 1000).toFixed(0)}k</p>
+                                    </div>
+
+                                    <Droppable droppableId={stage.id}>
+                                        {(provided, snapshot) => (
+                                            <div
+                                                {...provided.droppableId}
+                                                ref={provided.innerRef}
+                                                className={`flex flex-1 flex-col gap-3 rounded-xl transition-colors ${snapshot.isDraggingOver ? 'bg-white/5' : ''
+                                                    }`}
+                                            >
+                                                {stageDeals.map((deal, index) => (
+                                                    <Draggable key={deal.id} draggableId={deal.id} index={index}>
+                                                        {(provided, snapshot) => (
+                                                            <div
+                                                                ref={provided.innerRef}
+                                                                {...provided.draggableProps}
+                                                                {...provided.dragHandleProps}
+                                                                className={`group glass-card overflow-hidden border-t-2 ${stage.color} p-4 transition-all hover:border-[var(--color-brand-500)] ${snapshot.isDragging ? 'rotate-2 scale-105 shadow-2xl z-50 ring-2 ring-[var(--color-brand-400)]' : ''
+                                                                    }`}
+                                                            >
+                                                                <div className="mb-3 flex items-start justify-between">
+                                                                    <h4 className="text-sm font-bold text-[var(--color-text-primary)] group-hover:text-[var(--color-brand-400)] transition-colors">
                                                                         {deal.title}
-                                                                    </p>
-                                                                    <p className="text-xs text-[var(--color-text-muted)] mt-1">
-                                                                        {getLeadName(deal.lead_id)}
-                                                                    </p>
-                                                                    <div className="flex items-center justify-between mt-3">
-                                                                        <span className="flex items-center gap-1 text-xs font-semibold text-[var(--color-brand-400)]">
-                                                                            <DollarSign className="h-3 w-3" />
-                                                                            {deal.value.toLocaleString()}
-                                                                        </span>
-                                                                        {deal.expected_close_date && (
-                                                                            <span className="flex items-center gap-1 text-[10px] text-[var(--color-text-muted)]">
-                                                                                <Calendar className="h-3 w-3" />
-                                                                                {new Date(deal.expected_close_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                                                            </span>
-                                                                        )}
+                                                                    </h4>
+                                                                    <button className="rounded-lg p-1 text-[var(--color-text-muted)] hover:bg-[var(--color-surface-700)]">
+                                                                        <MoreHorizontal className="h-4 w-4" />
+                                                                    </button>
+                                                                </div>
+                                                                <div className="space-y-2">
+                                                                    <div className="flex items-center gap-2 text-xs text-[var(--color-text-secondary)]">
+                                                                        <User className="h-3 w-3" />
+                                                                        {deal.lead ? `${deal.lead.first_name} ${deal.lead.last_name}` : 'No Lead'}
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2 text-xs text-[var(--color-text-secondary)]">
+                                                                        <Calendar className="h-3 w-3" />
+                                                                        {deal.expected_close_date ? new Date(deal.expected_close_date).toLocaleDateString() : 'N/A'}
                                                                     </div>
                                                                 </div>
+                                                                <div className="mt-4 flex items-center justify-between border-t border-[var(--color-glass-border)] pt-3">
+                                                                    <span className="text-xs text-[var(--color-text-muted)]">Value</span>
+                                                                    <span className="text-sm font-bold text-emerald-400">${Number(deal.value).toLocaleString()}</span>
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    )}
-                                                </Draggable>
-                                            ))}
-                                            {provided.placeholder}
-                                        </div>
-                                    </div>
-                                )}
-                            </Droppable>
-                        );
-                    })}
+                                                        )}
+                                                    </Draggable>
+                                                ))}
+                                                {provided.placeholder}
+                                            </div>
+                                        )}
+                                    </Droppable>
+                                </div>
+                            );
+                        })}
+                    </div>
                 </div>
             </DragDropContext>
 
             {/* New Deal Modal */}
-            {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
-                    <div className="glass-card w-full max-w-md p-6 mx-4 animate-fade-in">
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-xl font-bold text-[var(--color-text-primary)]">New Deal</h2>
-                            <button onClick={() => setShowModal(false)} className="rounded-lg p-2 hover:bg-[var(--color-surface-500)] transition-colors">
-                                <X className="h-5 w-5 text-[var(--color-text-muted)]" />
+            {isModalOpen && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
+                    <div className="glass-card w-full max-w-md p-8 animate-fade-in shadow-2xl flex flex-col max-h-[90vh]">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-xl font-bold">New Deal</h2>
+                            <button onClick={() => setIsModalOpen(false)} className="rounded-lg p-1 text-[var(--color-text-muted)] hover:bg-[var(--color-surface-600)] transition-colors">
+                                <X className="h-5 w-5" />
                             </button>
                         </div>
-                        <div className="space-y-4">
+
+                        <form onSubmit={handleCreateDeal} className="space-y-4">
                             <div>
-                                <label className="mb-1 block text-xs text-[var(--color-text-muted)]">Title</label>
-                                <input
-                                    type="text"
-                                    value={form.title}
-                                    onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                                    className="w-full rounded-lg border border-[var(--color-glass-border)] bg-[var(--color-surface-700)] py-2 px-3 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-500)] transition-colors"
-                                    placeholder="Deal title"
-                                />
+                                <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">Deal Title</label>
+                                <input name="title" required placeholder="e.g. Enterprise License" className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none" />
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="mb-1 block text-xs text-[var(--color-text-muted)]">Value ($)</label>
-                                    <input
-                                        type="number"
-                                        value={form.value}
-                                        onChange={(e) => setForm((f) => ({ ...f, value: Number(e.target.value) }))}
-                                        className="w-full rounded-lg border border-[var(--color-glass-border)] bg-[var(--color-surface-700)] py-2 px-3 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-500)] transition-colors"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="mb-1 block text-xs text-[var(--color-text-muted)]">Stage</label>
-                                    <select
-                                        value={form.stage}
-                                        onChange={(e) => setForm((f) => ({ ...f, stage: e.target.value as DealStage }))}
-                                        className="w-full rounded-lg border border-[var(--color-glass-border)] bg-[var(--color-surface-700)] py-2 px-3 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-500)] transition-colors capitalize"
-                                    >
-                                        {stages.map((s) => (
-                                            <option key={s.key} value={s.key}>{s.label}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
+
                             <div>
-                                <label className="mb-1 block text-xs text-[var(--color-text-muted)]">Lead</label>
-                                <select
-                                    value={form.lead_id}
-                                    onChange={(e) => setForm((f) => ({ ...f, lead_id: e.target.value }))}
-                                    className="w-full rounded-lg border border-[var(--color-glass-border)] bg-[var(--color-surface-700)] py-2 px-3 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-500)] transition-colors"
-                                >
-                                    <option value="">Select a lead</option>
-                                    {demoLeads.map((l) => (
-                                        <option key={l.id} value={l.id}>{l.first_name} {l.last_name} — {l.company}</option>
+                                <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">Associated Lead</label>
+                                <select name="lead_id" required className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none">
+                                    <option value="">Select a lead...</option>
+                                    {leads?.map(l => (
+                                        <option key={l.id} value={l.id}>{l.first_name} {l.last_name} ({l.company})</option>
                                     ))}
                                 </select>
                             </div>
+
                             <div>
-                                <label className="mb-1 block text-xs text-[var(--color-text-muted)]">Expected Close Date</label>
-                                <input
-                                    type="date"
-                                    value={form.expected_close_date}
-                                    onChange={(e) => setForm((f) => ({ ...f, expected_close_date: e.target.value }))}
-                                    className="w-full rounded-lg border border-[var(--color-glass-border)] bg-[var(--color-surface-700)] py-2 px-3 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-500)] transition-colors"
-                                />
+                                <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">Value ($)</label>
+                                <input name="value" type="number" required defaultValue="0" className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none" />
                             </div>
+
                             <div>
-                                <label className="mb-1 block text-xs text-[var(--color-text-muted)]">Notes</label>
-                                <textarea
-                                    value={form.notes}
-                                    onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-                                    rows={2}
-                                    className="w-full rounded-lg border border-[var(--color-glass-border)] bg-[var(--color-surface-700)] py-2 px-3 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-500)] transition-colors resize-none"
-                                />
+                                <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">Expected Close Date</label>
+                                <input name="expected_close_date" type="date" required className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none" />
                             </div>
-                        </div>
-                        <div className="mt-6 flex justify-end gap-3">
-                            <button onClick={() => setShowModal(false)} className="rounded-xl px-5 py-2.5 text-sm font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors">
-                                Cancel
-                            </button>
-                            <button onClick={handleCreate} className="glow-gradient rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition-all hover:scale-105 active:scale-95">
-                                Create Deal
-                            </button>
-                        </div>
+
+                            <div className="pt-4 flex gap-3">
+                                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 rounded-xl bg-[var(--color-surface-700)] py-2.5 text-sm font-semibold hover:bg-[var(--color-surface-600)] transition-all">Cancel</button>
+                                <button
+                                    type="submit"
+                                    disabled={createMutation.isPending}
+                                    className="flex-1 glow-gradient rounded-xl py-2.5 text-sm font-semibold text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+                                >
+                                    {createMutation.isPending ? 'Creating...' : 'Create Deal'}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}

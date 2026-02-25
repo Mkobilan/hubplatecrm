@@ -1,147 +1,138 @@
 'use client';
 
 import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Search,
+    Filter,
     Plus,
+    MoreVertical,
     Mail,
     Phone,
     Building2,
-    MoreHorizontal,
+    ChevronRight,
+    ExternalLink,
+    Loader2,
+    Trash2,
     X,
-    User,
-    DollarSign,
-    StickyNote,
 } from 'lucide-react';
-import { demoLeads } from '@/lib/demo-data';
+import { getLeads, createLead, updateLead, deleteLead } from '@/lib/supabase/queries';
 import { Lead, LeadStatus } from '@/lib/types';
 
-const statusOptions: LeadStatus[] = ['new', 'contacted', 'qualified', 'proposal', 'won', 'lost'];
-const sourceOptions = ['Website', 'LinkedIn', 'Referral', 'Cold Email', 'Conference', 'Other'];
+const statusBadgeMap: Record<LeadStatus, string> = {
+    new: 'badge-new',
+    contacted: 'badge-contacted',
+    qualified: 'badge-qualified',
+    proposal: 'badge-proposal',
+    won: 'badge-won',
+    lost: 'badge-lost',
+};
 
 export default function LeadsPage() {
-    const [leads, setLeads] = useState<Lead[]>(demoLeads);
-    const [search, setSearch] = useState('');
-    const [filterStatus, setFilterStatus] = useState<LeadStatus | 'all'>('all');
-    const [showModal, setShowModal] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState<LeadStatus | 'all'>('all');
     const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-    const [showDetail, setShowDetail] = useState(false);
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
-    // Form state
-    const [form, setForm] = useState({
-        first_name: '', last_name: '', email: '', phone: '',
-        company: '', job_title: '', status: 'new' as LeadStatus,
-        source: 'Website', estimated_value: 0, notes: '',
+    const queryClient = useQueryClient();
+
+    // Queries
+    const { data: leads, isLoading } = useQuery({
+        queryKey: ['leads'],
+        queryFn: getLeads,
     });
 
-    const filtered = leads.filter((l) => {
+    // Mutations
+    const createMutation = useMutation({
+        mutationFn: createLead,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['leads'] });
+            setIsModalOpen(false);
+        },
+    });
+
+    const updateMutation = useMutation({
+        mutationFn: ({ id, data }: { id: string; data: Partial<Lead> }) => updateLead(id, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['leads'] });
+            setSelectedLead(null);
+        },
+    });
+
+    const deleteMutation = useMutation({
+        mutationFn: deleteLead,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['leads'] });
+            setSelectedLead(null);
+        },
+    });
+
+    const filteredLeads = leads?.filter((lead) => {
         const matchesSearch =
-            `${l.first_name} ${l.last_name} ${l.company} ${l.email}`
-                .toLowerCase()
-                .includes(search.toLowerCase());
-        const matchesStatus = filterStatus === 'all' || l.status === filterStatus;
+            `${lead.first_name} ${lead.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            lead.company.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesStatus = statusFilter === 'all' || lead.status === statusFilter;
         return matchesSearch && matchesStatus;
-    });
+    }) || [];
 
-    function openCreate() {
-        setForm({
-            first_name: '', last_name: '', email: '', phone: '',
-            company: '', job_title: '', status: 'new',
-            source: 'Website', estimated_value: 0, notes: '',
-        });
-        setSelectedLead(null);
-        setShowModal(true);
-    }
-
-    function openEdit(lead: Lead) {
-        setForm({
-            first_name: lead.first_name, last_name: lead.last_name,
-            email: lead.email, phone: lead.phone,
-            company: lead.company, job_title: lead.job_title,
-            status: lead.status, source: lead.source,
-            estimated_value: lead.estimated_value, notes: lead.notes,
-        });
-        setSelectedLead(lead);
-        setShowModal(true);
-    }
-
-    function handleSave() {
-        if (selectedLead) {
-            setLeads((prev) =>
-                prev.map((l) =>
-                    l.id === selectedLead.id
-                        ? { ...l, ...form, updated_at: new Date().toISOString() }
-                        : l
-                )
-            );
-        } else {
-            const newLead: Lead = {
-                id: `lead-${Date.now()}`,
-                user_id: 'demo-user-001',
-                ...form,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-            };
-            setLeads((prev) => [newLead, ...prev]);
-        }
-        setShowModal(false);
-    }
-
-    function handleDelete(id: string) {
-        setLeads((prev) => prev.filter((l) => l.id !== id));
-        setShowDetail(false);
-    }
+    const handleCreateLead = (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        const formData = new FormData(e.currentTarget);
+        const newLeadData = {
+            first_name: formData.get('first_name') as string,
+            last_name: formData.get('last_name') as string,
+            email: formData.get('email') as string,
+            phone: formData.get('phone') as string,
+            company: formData.get('company') as string,
+            status: formData.get('status') as LeadStatus,
+            estimated_value: Number(formData.get('estimated_value')),
+            notes: '',
+            job_title: '',
+            source: '',
+        };
+        createMutation.mutate(newLeadData);
+    };
 
     return (
-        <div className="space-y-6 animate-fade-in">
-            {/* Header */}
-            <div className="flex items-center justify-between">
+        <div className="space-y-6 animate-fade-in relative min-h-full">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-3xl font-bold text-[var(--color-text-primary)]">Leads</h1>
-                    <p className="text-[var(--color-text-secondary)]">
-                        Manage and track your prospects
-                    </p>
+                    <p className="text-[var(--color-text-secondary)]">Manage and track your potential prospects</p>
                 </div>
                 <button
-                    onClick={openCreate}
-                    className="glow-gradient flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition-all hover:scale-105 active:scale-95"
+                    onClick={() => setIsModalOpen(true)}
+                    className="glow-gradient flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-all hover:scale-105 active:scale-95"
                 >
-                    <Plus className="h-4 w-4" /> Add Lead
+                    <Plus className="h-4 w-4" />
+                    Add Lead
                 </button>
             </div>
 
-            {/* Filters */}
-            <div className="flex flex-wrap items-center gap-4">
-                <div className="relative flex-1 min-w-[250px]">
+            {/* Filters & Search */}
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
+                <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-muted)]" />
                     <input
                         type="text"
-                        placeholder="Search leads..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="w-full rounded-xl border border-[var(--color-glass-border)] bg-[var(--color-surface-700)] py-2.5 pl-10 pr-4 text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] outline-none focus:border-[var(--color-brand-500)] focus:ring-1 focus:ring-[var(--color-brand-500)] transition-all"
+                        placeholder="Search leads by name or company..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full rounded-xl border border-[var(--color-glass-border)] bg-[var(--color-surface-700)] py-2.5 pl-10 pr-4 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-500)] transition-all"
                     />
                 </div>
-                <div className="flex gap-2">
-                    <button
-                        onClick={() => setFilterStatus('all')}
-                        className={`rounded-lg px-3 py-2 text-xs font-medium transition-all ${filterStatus === 'all'
-                                ? 'bg-[var(--color-brand-600)] text-white'
-                                : 'bg-[var(--color-surface-600)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
-                            }`}
-                    >
-                        All
-                    </button>
-                    {statusOptions.map((s) => (
+                <div className="flex items-center gap-2 overflow-x-auto pb-2 lg:pb-0">
+                    <Filter className="h-4 w-4 text-[var(--color-text-muted)] ml-2" />
+                    {(['all', 'new', 'contacted', 'qualified', 'proposal', 'won', 'lost'] as const).map((status) => (
                         <button
-                            key={s}
-                            onClick={() => setFilterStatus(s)}
-                            className={`rounded-lg px-3 py-2 text-xs font-medium capitalize transition-all ${filterStatus === s
-                                    ? 'bg-[var(--color-brand-600)] text-white'
-                                    : 'bg-[var(--color-surface-600)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                            key={status}
+                            onClick={() => setStatusFilter(status)}
+                            className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${statusFilter === status
+                                    ? 'bg-[var(--color-brand-600)] text-white shadow-lg shadow-[var(--color-brand-500)]/20'
+                                    : 'bg-[var(--color-surface-700)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-600)] hover:text-[var(--color-text-primary)]'
                                 }`}
                         >
-                            {s}
+                            {status.charAt(0).toUpperCase() + status.slice(1)}
                         </button>
                     ))}
                 </div>
@@ -149,243 +140,226 @@ export default function LeadsPage() {
 
             {/* Leads Table */}
             <div className="glass-card overflow-hidden">
-                <table className="w-full text-left text-sm">
-                    <thead>
-                        <tr className="border-b border-[var(--color-glass-border)] text-[var(--color-text-muted)]">
-                            <th className="px-6 py-4 font-medium">Name</th>
-                            <th className="px-6 py-4 font-medium">Company</th>
-                            <th className="px-6 py-4 font-medium">Status</th>
-                            <th className="px-6 py-4 font-medium">Value</th>
-                            <th className="px-6 py-4 font-medium">Source</th>
-                            <th className="px-6 py-4 font-medium"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filtered.map((lead, i) => (
-                            <tr
-                                key={lead.id}
-                                className="group border-b border-[var(--color-glass-border)] transition-colors hover:bg-[var(--color-glass-hover)] cursor-pointer animate-fade-in"
-                                style={{ animationDelay: `${i * 50}ms` }}
-                                onClick={() => { setSelectedLead(lead); setShowDetail(true); }}
-                            >
-                                <td className="px-6 py-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--color-brand-600)]/20 text-sm font-semibold text-[var(--color-brand-400)]">
-                                            {lead.first_name[0]}{lead.last_name[0]}
-                                        </div>
-                                        <div>
-                                            <p className="font-medium text-[var(--color-text-primary)]">
-                                                {lead.first_name} {lead.last_name}
-                                            </p>
-                                            <p className="text-xs text-[var(--color-text-muted)]">{lead.email}</p>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4 text-[var(--color-text-secondary)]">{lead.company}</td>
-                                <td className="px-6 py-4">
-                                    <span className={`badge badge-${lead.status}`}>{lead.status}</span>
-                                </td>
-                                <td className="px-6 py-4 font-semibold text-[var(--color-brand-400)]">
-                                    ${lead.estimated_value.toLocaleString()}
-                                </td>
-                                <td className="px-6 py-4 text-[var(--color-text-muted)]">{lead.source}</td>
-                                <td className="px-6 py-4">
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); openEdit(lead); }}
-                                        className="rounded-lg p-2 opacity-0 transition-all group-hover:opacity-100 hover:bg-[var(--color-surface-500)]"
+                {isLoading ? (
+                    <div className="flex justify-center p-12">
+                        <Loader2 className="h-8 w-8 animate-spin text-[var(--color-brand-500)]" />
+                    </div>
+                ) : filteredLeads.length > 0 ? (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-[var(--color-surface-800)] text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
+                                <tr>
+                                    <th className="px-6 py-4 font-semibold">Lead Name</th>
+                                    <th className="px-6 py-4 font-semibold">Company</th>
+                                    <th className="px-6 py-4 font-semibold">Status</th>
+                                    <th className="px-6 py-4 font-semibold text-right">Value</th>
+                                    <th className="px-6 py-4"></th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[var(--color-glass-border)]">
+                                {filteredLeads.map((lead) => (
+                                    <tr
+                                        key={lead.id}
+                                        onClick={() => setSelectedLead(lead)}
+                                        className="group cursor-pointer transition-colors hover:bg-[var(--color-brand-500)]/5"
                                     >
-                                        <MoreHorizontal className="h-4 w-4 text-[var(--color-text-muted)]" />
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-                {filtered.length === 0 && (
-                    <div className="py-12 text-center text-[var(--color-text-muted)]">
-                        No leads found. Try adjusting your search or filters.
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--color-brand-600)]/10 text-[var(--color-brand-400)] font-bold">
+                                                    {lead.first_name[0]}{lead.last_name[0]}
+                                                </div>
+                                                <div>
+                                                    <p className="font-semibold text-[var(--color-text-primary)]">{lead.first_name} {lead.last_name}</p>
+                                                    <p className="text-xs text-[var(--color-text-muted)]">{lead.email}</p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-[var(--color-text-secondary)]">
+                                            <div className="flex items-center gap-2">
+                                                <Building2 className="h-3.5 w-3.5" />
+                                                {lead.company}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className={`badge ${statusBadgeMap[lead.status]}`}>
+                                                {lead.status}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-right font-medium text-[var(--color-text-primary)]">
+                                            ${Number(lead.estimated_value).toLocaleString()}
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <button className="rounded-lg p-1 text-[var(--color-text-muted)] opacity-0 transition-opacity group-hover:opacity-100 hover:bg-[var(--color-surface-600)] hover:text-[var(--color-text-primary)]">
+                                                <ChevronRight className="h-4 w-4" />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                ) : (
+                    <div className="flex flex-col items-center justify-center py-20 text-center">
+                        <div className="mb-4 rounded-full bg-[var(--color-surface-700)] p-4">
+                            <Plus className="h-8 w-8 text-[var(--color-text-muted)]" />
+                        </div>
+                        <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">No leads found</h3>
+                        <p className="text-sm text-[var(--color-text-secondary)]">Start building your pipeline by adding your first lead.</p>
                     </div>
                 )}
             </div>
 
-            {/* Create / Edit Modal */}
-            {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
-                    <div className="glass-card w-full max-w-lg p-6 mx-4 animate-fade-in">
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-xl font-bold text-[var(--color-text-primary)]">
-                                {selectedLead ? 'Edit Lead' : 'New Lead'}
-                            </h2>
-                            <button onClick={() => setShowModal(false)} className="rounded-lg p-2 hover:bg-[var(--color-surface-500)] transition-colors">
-                                <X className="h-5 w-5 text-[var(--color-text-muted)]" />
+            {/* Detail Slide-over */}
+            {selectedLead && (
+                <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-sm animate-fade-in">
+                    <div
+                        className="h-full w-full max-w-lg bg-[var(--color-surface-800)] p-8 shadow-2xl shadow-black animate-slide-in flex flex-col"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="mb-8 flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className="h-14 w-14 flex items-center justify-center rounded-2xl bg-[var(--color-brand-600)]/15 text-xl font-bold text-[var(--color-brand-400)]">
+                                    {selectedLead.first_name[0]}{selectedLead.last_name[0]}
+                                </div>
+                                <div>
+                                    <h2 className="text-2xl font-bold text-[var(--color-text-primary)]">{selectedLead.first_name} {selectedLead.last_name}</h2>
+                                    <p className="text-[var(--color-text-muted)]">{selectedLead.company}</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setSelectedLead(null)} className="rounded-xl p-2 text-[var(--color-text-muted)] hover:bg-[var(--color-surface-700)] hover:text-white transition-colors">
+                                <X className="h-6 w-6" />
                             </button>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            {[
-                                { label: 'First Name', key: 'first_name', icon: User },
-                                { label: 'Last Name', key: 'last_name', icon: User },
-                                { label: 'Email', key: 'email', icon: Mail },
-                                { label: 'Phone', key: 'phone', icon: Phone },
-                                { label: 'Company', key: 'company', icon: Building2 },
-                                { label: 'Job Title', key: 'job_title', icon: User },
-                            ].map(({ label, key, icon: Icon }) => (
-                                <div key={key}>
-                                    <label className="mb-1 block text-xs text-[var(--color-text-muted)]">{label}</label>
-                                    <div className="relative">
-                                        <Icon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-muted)]" />
-                                        <input
-                                            type="text"
-                                            value={(form as Record<string, string | number>)[key] as string}
-                                            onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-                                            className="w-full rounded-lg border border-[var(--color-glass-border)] bg-[var(--color-surface-700)] py-2 pl-9 pr-3 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-500)] transition-colors"
-                                        />
+
+                        <div className="flex-1 space-y-8 overflow-y-auto pr-2">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="glass-card p-4">
+                                    <p className="mb-1 text-xs text-[var(--color-text-muted)] uppercase tracking-wider">Status</p>
+                                    <select
+                                        value={selectedLead.status}
+                                        onChange={(e) => updateMutation.mutate({ id: selectedLead.id, data: { status: e.target.value as LeadStatus } })}
+                                        className="w-full bg-transparent text-sm font-semibold text-[var(--color-brand-400)] outline-none cursor-pointer"
+                                    >
+                                        <option value="new">New</option>
+                                        <option value="contacted">Contacted</option>
+                                        <option value="qualified">Qualified</option>
+                                        <option value="proposal">Proposal</option>
+                                        <option value="won">Won</option>
+                                        <option value="lost">Lost</option>
+                                    </select>
+                                </div>
+                                <div className="glass-card p-4">
+                                    <p className="mb-1 text-xs text-[var(--color-text-muted)] uppercase tracking-wider">Estimated Value</p>
+                                    <p className="text-sm font-semibold text-emerald-400">${Number(selectedLead.estimated_value).toLocaleString()}</p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <h3 className="text-xs font-bold uppercase tracking-widest text-[var(--color-text-muted)]">Contact Information</h3>
+                                <div className="space-y-3">
+                                    <div className="flex items-center gap-3 rounded-xl bg-[var(--color-surface-700)] p-4">
+                                        <Mail className="h-4 w-4 text-[var(--color-text-muted)]" />
+                                        <span className="text-sm">{selectedLead.email}</span>
+                                    </div>
+                                    <div className="flex items-center gap-3 rounded-xl bg-[var(--color-surface-700)] p-4">
+                                        <Phone className="h-4 w-4 text-[var(--color-text-muted)]" />
+                                        <span className="text-sm">{selectedLead.phone}</span>
                                     </div>
                                 </div>
-                            ))}
-                            <div>
-                                <label className="mb-1 block text-xs text-[var(--color-text-muted)]">Status</label>
-                                <select
-                                    value={form.status}
-                                    onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as LeadStatus }))}
-                                    className="w-full rounded-lg border border-[var(--color-glass-border)] bg-[var(--color-surface-700)] py-2 px-3 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-500)] transition-colors capitalize"
-                                >
-                                    {statusOptions.map((s) => (
-                                        <option key={s} value={s} className="capitalize">{s}</option>
-                                    ))}
-                                </select>
                             </div>
-                            <div>
-                                <label className="mb-1 block text-xs text-[var(--color-text-muted)]">Source</label>
-                                <select
-                                    value={form.source}
-                                    onChange={(e) => setForm((f) => ({ ...f, source: e.target.value }))}
-                                    className="w-full rounded-lg border border-[var(--color-glass-border)] bg-[var(--color-surface-700)] py-2 px-3 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-500)] transition-colors"
-                                >
-                                    {sourceOptions.map((s) => (
-                                        <option key={s} value={s}>{s}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="col-span-2">
-                                <label className="mb-1 block text-xs text-[var(--color-text-muted)]">Estimated Value</label>
-                                <div className="relative">
-                                    <DollarSign className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-muted)]" />
-                                    <input
-                                        type="number"
-                                        value={form.estimated_value}
-                                        onChange={(e) => setForm((f) => ({ ...f, estimated_value: Number(e.target.value) }))}
-                                        className="w-full rounded-lg border border-[var(--color-glass-border)] bg-[var(--color-surface-700)] py-2 pl-9 pr-3 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-500)] transition-colors"
-                                    />
-                                </div>
-                            </div>
-                            <div className="col-span-2">
-                                <label className="mb-1 block text-xs text-[var(--color-text-muted)]">Notes</label>
-                                <div className="relative">
-                                    <StickyNote className="absolute left-3 top-3 h-4 w-4 text-[var(--color-text-muted)]" />
-                                    <textarea
-                                        value={form.notes}
-                                        onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-                                        rows={3}
-                                        className="w-full rounded-lg border border-[var(--color-glass-border)] bg-[var(--color-surface-700)] py-2 pl-9 pr-3 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-500)] transition-colors resize-none"
-                                    />
+
+                            <div className="space-y-4">
+                                <h3 className="text-xs font-bold uppercase tracking-widest text-[var(--color-text-muted)]">Actions</h3>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button className="flex items-center justify-center gap-2 rounded-xl border border-[var(--color-glass-border)] py-3 text-sm font-medium transition-all hover:bg-[var(--color-surface-700)]">
+                                        <Mail className="h-4 w-4" /> Send Email
+                                    </button>
+                                    <button className="flex items-center justify-center gap-2 rounded-xl border border-[var(--color-glass-border)] py-3 text-sm font-medium transition-all hover:bg-[var(--color-surface-700)]">
+                                        <Phone className="h-4 w-4" /> Log Call
+                                    </button>
                                 </div>
                             </div>
                         </div>
-                        <div className="mt-6 flex justify-end gap-3">
+
+                        <div className="mt-8 pt-6 border-t border-[var(--color-glass-border)]">
                             <button
-                                onClick={() => setShowModal(false)}
-                                className="rounded-xl px-5 py-2.5 text-sm font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+                                onClick={() => {
+                                    if (confirm('Are you sure you want to delete this lead?')) {
+                                        deleteMutation.mutate(selectedLead.id);
+                                    }
+                                }}
+                                className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-medium text-red-400 transition-all hover:bg-red-500/10"
                             >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleSave}
-                                className="glow-gradient rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition-all hover:scale-105 active:scale-95"
-                            >
-                                {selectedLead ? 'Save Changes' : 'Create Lead'}
+                                <Trash2 className="h-4 w-4" /> Delete Lead
                             </button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Detail Slide-over */}
-            {showDetail && selectedLead && (
-                <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-sm animate-fade-in" onClick={() => setShowDetail(false)}>
-                    <div
-                        className="h-full w-full max-w-md bg-[var(--color-surface-800)] border-l border-[var(--color-glass-border)] p-6 overflow-y-auto animate-slide-in"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-xl font-bold text-[var(--color-text-primary)]">Lead Details</h2>
-                            <button onClick={() => setShowDetail(false)} className="rounded-lg p-2 hover:bg-[var(--color-surface-500)] transition-colors">
-                                <X className="h-5 w-5 text-[var(--color-text-muted)]" />
+            {/* Add Lead Modal */}
+            {isModalOpen && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
+                    <div className="glass-card w-full max-w-md p-8 animate-fade-in shadow-2xl flex flex-col max-h-[90vh]">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-xl font-bold">Add New Lead</h2>
+                            <button onClick={() => setIsModalOpen(false)} className="rounded-lg p-1 text-[var(--color-text-muted)] hover:bg-[var(--color-surface-600)] transition-colors">
+                                <X className="h-5 w-5" />
                             </button>
                         </div>
 
-                        {/* Avatar & Name */}
-                        <div className="flex items-center gap-4 mb-6">
-                            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--color-brand-600)]/20 text-xl font-bold text-[var(--color-brand-400)]">
-                                {selectedLead.first_name[0]}{selectedLead.last_name[0]}
+                        <form onSubmit={handleCreateLead} className="space-y-4 overflow-y-auto pr-2">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">First Name</label>
+                                    <input name="first_name" required className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">Last Name</label>
+                                    <input name="last_name" required className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none" />
+                                </div>
                             </div>
+
                             <div>
-                                <h3 className="text-lg font-bold text-[var(--color-text-primary)]">
-                                    {selectedLead.first_name} {selectedLead.last_name}
-                                </h3>
-                                <p className="text-sm text-[var(--color-text-secondary)]">
-                                    {selectedLead.job_title} at {selectedLead.company}
-                                </p>
-                                <span className={`badge badge-${selectedLead.status} mt-1`}>{selectedLead.status}</span>
+                                <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">Email</label>
+                                <input name="email" type="email" required className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none" />
                             </div>
-                        </div>
 
-                        {/* Contact Info */}
-                        <div className="space-y-3 mb-6">
-                            <div className="flex items-center gap-3 rounded-xl bg-[var(--color-surface-700)] p-3">
-                                <Mail className="h-4 w-4 text-[var(--color-brand-400)]" />
-                                <span className="text-sm text-[var(--color-text-primary)]">{selectedLead.email}</span>
+                            <div>
+                                <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">Phone</label>
+                                <input name="phone" className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none" />
                             </div>
-                            <div className="flex items-center gap-3 rounded-xl bg-[var(--color-surface-700)] p-3">
-                                <Phone className="h-4 w-4 text-[var(--color-brand-400)]" />
-                                <span className="text-sm text-[var(--color-text-primary)]">{selectedLead.phone}</span>
-                            </div>
-                            <div className="flex items-center gap-3 rounded-xl bg-[var(--color-surface-700)] p-3">
-                                <Building2 className="h-4 w-4 text-[var(--color-brand-400)]" />
-                                <span className="text-sm text-[var(--color-text-primary)]">{selectedLead.company}</span>
-                            </div>
-                            <div className="flex items-center gap-3 rounded-xl bg-[var(--color-surface-700)] p-3">
-                                <DollarSign className="h-4 w-4 text-green-400" />
-                                <span className="text-sm font-semibold text-green-400">
-                                    ${selectedLead.estimated_value.toLocaleString()}
-                                </span>
-                            </div>
-                        </div>
 
-                        {/* Notes */}
-                        {selectedLead.notes && (
-                            <div className="mb-6">
-                                <h4 className="text-sm font-medium text-[var(--color-text-muted)] mb-2">Notes</h4>
-                                <p className="rounded-xl bg-[var(--color-surface-700)] p-4 text-sm text-[var(--color-text-secondary)]">
-                                    {selectedLead.notes}
-                                </p>
+                            <div>
+                                <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">Company</label>
+                                <input name="company" required className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none" />
                             </div>
-                        )}
 
-                        {/* Actions */}
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => { setShowDetail(false); openEdit(selectedLead); }}
-                                className="flex-1 rounded-xl bg-[var(--color-brand-600)] px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-[var(--color-brand-700)]"
-                            >
-                                Edit
-                            </button>
-                            <button
-                                onClick={() => handleDelete(selectedLead.id)}
-                                className="rounded-xl bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-400 transition-all hover:bg-red-500/20"
-                            >
-                                Delete
-                            </button>
-                        </div>
+                            <div>
+                                <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">Status</label>
+                                <select name="status" className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none">
+                                    <option value="new">New</option>
+                                    <option value="contacted">Contacted</option>
+                                    <option value="qualified">Qualified</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">Estimated Value</label>
+                                <input name="estimated_value" type="number" defaultValue="0" className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none" />
+                            </div>
+
+                            <div className="pt-4 flex gap-3">
+                                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 rounded-xl bg-[var(--color-surface-700)] py-2.5 text-sm font-semibold hover:bg-[var(--color-surface-600)] transition-all">Cancel</button>
+                                <button
+                                    type="submit"
+                                    disabled={createMutation.isPending}
+                                    className="flex-1 glow-gradient rounded-xl py-2.5 text-sm font-semibold text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+                                >
+                                    {createMutation.isPending ? 'Adding...' : 'Add Lead'}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
