@@ -169,14 +169,10 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     const newLeadsThisWeek = leads.filter(l => new Date(l.created_at) > weekAgo).length;
     const wonDeals = deals.filter(d => d.stage === 'won');
     const wonLeads = leads.filter(l => l.status === 'won');
+    const pipelineLeads = leads.filter(l => l.status !== 'won' && l.status !== 'lost');
 
-    const totalDealsValue = deals.reduce((sum, d) => sum + Number(d.value), 0);
-    const totalLeadsValue = leads.reduce((sum, l) => sum + Number(l.estimated_value || 0), 0);
-    const totalPipelineValue = totalDealsValue + totalLeadsValue;
-
-    const wonDealsValue = wonDeals.reduce((sum, d) => sum + Number(d.value), 0);
-    const wonLeadsValue = wonLeads.reduce((sum, l) => sum + Number(l.estimated_value || 0), 0);
-    const wonValue = wonDealsValue + wonLeadsValue;
+    const wonValue = wonLeads.reduce((sum, l) => sum + Number(l.estimated_value || 0), 0);
+    const totalPipelineValue = pipelineLeads.reduce((sum, l) => sum + Number(l.estimated_value || 0), 0);
 
     const activitiesThisWeek = activities.filter(a => new Date(a.created_at) > weekAgo).length;
     const upcomingEvents = events.filter(e => new Date(e.start_time) > now).length;
