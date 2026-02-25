@@ -15,6 +15,7 @@ import {
     Loader2,
     Trash2,
     X,
+    Pencil,
 } from 'lucide-react';
 import { getLeads, createLead, updateLead, deleteLead } from '@/lib/supabase/queries';
 import { Lead, LeadStatus } from '@/lib/types';
@@ -42,6 +43,7 @@ export default function LeadsPage() {
     const [statusFilter, setStatusFilter] = useState<LeadStatus | 'all'>('all');
     const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingLead, setEditingLead] = useState<Lead | null>(null);
 
     const queryClient = useQueryClient();
 
@@ -235,9 +237,18 @@ export default function LeadsPage() {
                                     <p className="text-[var(--color-text-muted)]">{selectedLead.company}</p>
                                 </div>
                             </div>
-                            <button onClick={() => setSelectedLead(null)} className="rounded-xl p-2 text-[var(--color-text-muted)] hover:bg-[var(--color-surface-700)] hover:text-white transition-colors">
-                                <X className="h-6 w-6" />
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setEditingLead(selectedLead)}
+                                    className="rounded-xl p-2 text-blue-400 hover:bg-blue-500/10 transition-colors"
+                                    title="Edit Lead"
+                                >
+                                    <Pencil className="h-5 w-5" />
+                                </button>
+                                <button onClick={() => setSelectedLead(null)} className="rounded-xl p-2 text-[var(--color-text-muted)] hover:bg-[var(--color-surface-700)] hover:text-white transition-colors">
+                                    <X className="h-6 w-6" />
+                                </button>
+                            </div>
                         </div>
 
                         <div className="flex-1 space-y-8 overflow-y-auto pr-2">
@@ -278,14 +289,11 @@ export default function LeadsPage() {
                             </div>
 
                             <div className="space-y-4">
-                                <h3 className="text-xs font-bold uppercase tracking-widest text-[var(--color-text-muted)]">Actions</h3>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <button className="flex items-center justify-center gap-2 rounded-xl border border-[var(--color-glass-border)] py-3 text-sm font-medium transition-all hover:bg-[var(--color-surface-700)]">
-                                        <Mail className="h-4 w-4" /> Send Email
-                                    </button>
-                                    <button className="flex items-center justify-center gap-2 rounded-xl border border-[var(--color-glass-border)] py-3 text-sm font-medium transition-all hover:bg-[var(--color-surface-700)]">
-                                        <Phone className="h-4 w-4" /> Log Call
-                                    </button>
+                                <h3 className="text-xs font-bold uppercase tracking-widest text-[var(--color-text-muted)]">Notes</h3>
+                                <div className="rounded-xl bg-[var(--color-surface-700)] p-4">
+                                    <p className="text-sm text-[var(--color-text-secondary)] whitespace-pre-wrap">
+                                        {selectedLead.notes || 'No notes added yet.'}
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -306,66 +314,104 @@ export default function LeadsPage() {
                 </div>
             )}
 
-            {/* Add Lead Modal */}
-            {isModalOpen && (
+            {/* Add/Edit Lead Modal */}
+            {(isModalOpen || editingLead) && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
                     <div className="glass-card w-full max-w-md p-8 animate-fade-in shadow-2xl flex flex-col max-h-[90vh]">
                         <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-xl font-bold">Add New Lead</h2>
-                            <button onClick={() => setIsModalOpen(false)} className="rounded-lg p-1 text-[var(--color-text-muted)] hover:bg-[var(--color-surface-600)] transition-colors">
+                            <h2 className="text-xl font-bold">{editingLead ? 'Edit Lead' : 'Add New Lead'}</h2>
+                            <button onClick={() => { setIsModalOpen(false); setEditingLead(null); }} className="rounded-lg p-1 text-[var(--color-text-muted)] hover:bg-[var(--color-surface-600)] transition-colors">
                                 <X className="h-5 w-5" />
                             </button>
                         </div>
 
-                        <form onSubmit={handleCreateLead} className="space-y-4 overflow-y-auto pr-2">
+                        <form
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                const formData = new FormData(e.currentTarget);
+                                const leadData = {
+                                    first_name: formData.get('first_name') as string,
+                                    last_name: formData.get('last_name') as string,
+                                    email: formData.get('email') as string,
+                                    phone: formData.get('phone') as string,
+                                    company: formData.get('company') as string,
+                                    status: formData.get('status') as LeadStatus,
+                                    estimated_value: Number(formData.get('estimated_value')),
+                                    notes: formData.get('notes') as string,
+                                };
+
+                                if (editingLead) {
+                                    updateMutation.mutate({
+                                        id: editingLead.id,
+                                        data: leadData
+                                    });
+                                    setEditingLead(null);
+                                    if (selectedLead?.id === editingLead.id) {
+                                        setSelectedLead({ ...selectedLead, ...leadData });
+                                    }
+                                } else {
+                                    handleCreateLead(e);
+                                }
+                            }}
+                            className="space-y-4 overflow-y-auto pr-2"
+                        >
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">First Name</label>
-                                    <input name="first_name" required className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none" />
+                                    <input name="first_name" required defaultValue={editingLead?.first_name} className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none" />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">Last Name</label>
-                                    <input name="last_name" required className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none" />
+                                    <input name="last_name" required defaultValue={editingLead?.last_name} className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none" />
                                 </div>
                             </div>
 
                             <div>
                                 <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">Email</label>
-                                <input name="email" type="email" required className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none" />
+                                <input name="email" type="email" required defaultValue={editingLead?.email} className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none" />
                             </div>
 
                             <div>
                                 <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">Phone</label>
-                                <input name="phone" className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none" />
+                                <input name="phone" defaultValue={editingLead?.phone} className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none" />
                             </div>
 
                             <div>
                                 <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">Company</label>
-                                <input name="company" required className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none" />
+                                <input name="company" required defaultValue={editingLead?.company} className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none" />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">Status</label>
+                                    <select name="status" defaultValue={editingLead?.status || 'new'} className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none">
+                                        <option value="new">New</option>
+                                        <option value="contacted">Contacted</option>
+                                        <option value="qualified">Qualified</option>
+                                        <option value="proposal">Proposal</option>
+                                        <option value="won">Won</option>
+                                        <option value="lost">Lost</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">Estimated Value</label>
+                                    <input name="estimated_value" type="number" defaultValue={editingLead?.estimated_value || 0} className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none" />
+                                </div>
                             </div>
 
                             <div>
-                                <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">Status</label>
-                                <select name="status" className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none">
-                                    <option value="new">New</option>
-                                    <option value="contacted">Contacted</option>
-                                    <option value="qualified">Qualified</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">Estimated Value</label>
-                                <input name="estimated_value" type="number" defaultValue="0" className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none" />
+                                <label className="block text-xs font-medium text-[var(--color-text-muted)] uppercase mb-1">Notes</label>
+                                <textarea name="notes" rows={3} defaultValue={editingLead?.notes} className="w-full bg-[var(--color-surface-700)] border border-[var(--color-glass-border)] rounded-lg py-2 px-3 text-sm focus:border-[var(--color-brand-500)] outline-none resize-none" />
                             </div>
 
                             <div className="pt-4 flex gap-3">
-                                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 rounded-xl bg-[var(--color-surface-700)] py-2.5 text-sm font-semibold hover:bg-[var(--color-surface-600)] transition-all">Cancel</button>
+                                <button type="button" onClick={() => { setIsModalOpen(false); setEditingLead(null); }} className="flex-1 rounded-xl bg-[var(--color-surface-700)] py-2.5 text-sm font-semibold hover:bg-[var(--color-surface-600)] transition-all">Cancel</button>
                                 <button
                                     type="submit"
-                                    disabled={createMutation.isPending}
+                                    disabled={createMutation.isPending || updateMutation.isPending}
                                     className="flex-1 glow-gradient rounded-xl py-2.5 text-sm font-semibold text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
                                 >
-                                    {createMutation.isPending ? 'Adding...' : 'Add Lead'}
+                                    {createMutation.isPending || updateMutation.isPending ? 'Processing...' : (editingLead ? 'Save Changes' : 'Add Lead')}
                                 </button>
                             </div>
                         </form>

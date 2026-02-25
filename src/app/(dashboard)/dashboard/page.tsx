@@ -107,7 +107,6 @@ export default function DashboardPage() {
                                 <div className={`${stat.bg} rounded-xl p-3`}>
                                     <Icon className={`h-5 w-5 ${stat.color}`} />
                                 </div>
-                                <ArrowUpRight className="h-4 w-4 text-[var(--color-text-muted)]" />
                             </div>
                             <div className="mt-4">
                                 <p className="text-2xl font-bold text-[var(--color-text-primary)]">
@@ -184,10 +183,10 @@ export default function DashboardPage() {
                                         </p>
                                     </div>
                                     <span className={`badge text-[10px] ${activity.type === 'call' ? 'bg-blue-500/15 text-blue-400' :
-                                            activity.type === 'email' ? 'bg-purple-500/15 text-purple-400' :
-                                                activity.type === 'meeting' ? 'bg-emerald-500/15 text-emerald-400' :
-                                                    activity.type === 'task' ? 'bg-rose-500/15 text-rose-400' :
-                                                        'bg-amber-500/15 text-amber-400'
+                                        activity.type === 'email' ? 'bg-purple-500/15 text-purple-400' :
+                                            activity.type === 'meeting' ? 'bg-emerald-500/15 text-emerald-400' :
+                                                activity.type === 'task' ? 'bg-rose-500/15 text-rose-400' :
+                                                    'bg-amber-500/15 text-amber-400'
                                         }`}>
                                         {activity.type}
                                     </span>
