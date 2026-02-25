@@ -13,6 +13,9 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "HubPlate CRM — Sales Pipeline",
   description: "A modern CRM platform for salesmen to track leads, manage pipelines, and close deals.",
+  icons: {
+    icon: "/logo.png",
+  },
 };
 
 export default function RootLayout({
