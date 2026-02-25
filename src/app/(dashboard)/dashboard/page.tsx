@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { createClient } from '@/lib/supabase/client';
 import {
     Users,
     TrendingUp,
@@ -24,6 +25,17 @@ const stageColors: Record<string, string> = {
 };
 
 export default function DashboardPage() {
+    const supabase = createClient();
+    const { data: profile } = useQuery({
+        queryKey: ['profile'],
+        queryFn: async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return null;
+            const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+            return data;
+        },
+    });
+
     const { data: stats, isLoading: statsLoading } = useQuery({
         queryKey: ['dashboard-stats'],
         queryFn: getDashboardStats,
@@ -52,6 +64,8 @@ export default function DashboardPage() {
         );
     }
 
+    const firstName = profile?.full_name?.split(' ')[0];
+
     const statItems = [
         { label: 'Total Leads', value: stats?.totalLeads || 0, icon: Users, color: 'text-blue-400', bg: 'bg-blue-500/10' },
         { label: 'New This Week', value: stats?.newLeadsThisWeek || 0, icon: Sparkles, color: 'text-purple-400', bg: 'bg-purple-500/10' },
@@ -72,7 +86,7 @@ export default function DashboardPage() {
             {/* Header */}
             <div>
                 <h1 className="text-3xl font-bold text-[var(--color-text-primary)]">
-                    Good morning! <span className="text-gradient">☀️</span>
+                    Good morning{firstName ? `, ${firstName}` : ''}! <span className="text-gradient">☀️</span>
                 </h1>
                 <p className="mt-1 text-[var(--color-text-secondary)]">
                     Here&apos;s your sales overview for today.

@@ -2,14 +2,15 @@
 
 @theme {
   /* ─── Brand Palette ─── */
-  --color-brand-50: #eef2ff;
-  --color-brand-100: #e0e7ff;
-  --color-brand-200: #c7d2fe;
-  --color-brand-300: #a5b4fc;
-  --color-brand-400: #818cf8;
-  --color-brand-500: #6366f1;
-  --color-brand-600: #4f46e5;
-  --color-brand-700: #4338ca;
+  /* ─── Brand Palette (Burnt Orange) ─── */
+  --color-brand-50: #fff7ed;
+  --color-brand-100: #ffecd5;
+  --color-brand-200: #ffd6ab;
+  --color-brand-300: #ffb674;
+  --color-brand-400: #ff8b3d;
+  --color-brand-500: #f97316;
+  --color-brand-600: #ea580c;
+  --color-brand-700: #c2410c;
 
   /* ─── Surface / Background ─── */
   --color-surface-900: #0a0a0f;
@@ -54,13 +55,16 @@ body {
   width: 6px;
   height: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   background: var(--color-surface-500);
   border-radius: 999px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-brand-500);
 }
@@ -74,6 +78,7 @@ body {
   -webkit-backdrop-filter: blur(20px);
   transition: all 0.25s ease;
 }
+
 .glass-card:hover {
   background: var(--color-glass-hover);
   border-color: rgba(255, 255, 255, 0.12);
@@ -82,7 +87,7 @@ body {
 /* ─── Gradient Glow ─── */
 .glow-gradient {
   background: linear-gradient(135deg, var(--color-brand-600), var(--color-brand-400));
-  box-shadow: 0 0 30px rgba(99, 102, 241, 0.25);
+  box-shadow: 0 0 30px rgba(234, 88, 12, 0.25);
 }
 
 /* ─── Status badges ─── */
@@ -97,45 +102,131 @@ body {
   letter-spacing: 0.025em;
   text-transform: uppercase;
 }
-.badge-new        { background: rgba(59,130,246,0.15); color: #60a5fa; }
-.badge-contacted  { background: rgba(168,85,247,0.15); color: #c084fc; }
-.badge-qualified  { background: rgba(245,158,11,0.15); color: #fbbf24; }
-.badge-proposal   { background: rgba(99,102,241,0.15); color: #a5b4fc; }
-.badge-won        { background: rgba(34,197,94,0.15);  color: #4ade80; }
-.badge-lost       { background: rgba(239,68,68,0.15);  color: #f87171; }
+
+.badge-new {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+}
+
+.badge-contacted {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+}
+
+.badge-qualified {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+}
+
+.badge-proposal {
+  background: rgba(99, 102, 241, 0.15);
+  color: #a5b4fc;
+}
+
+.badge-won {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+}
+
+.badge-lost {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
 
 /* ─── Pipeline stages ─── */
-.stage-prospect    { border-top: 3px solid #3b82f6; }
-.stage-qualified   { border-top: 3px solid #f59e0b; }
-.stage-proposal    { border-top: 3px solid #8b5cf6; }
-.stage-negotiation { border-top: 3px solid #06b6d4; }
-.stage-won         { border-top: 3px solid #22c55e; }
-.stage-lost        { border-top: 3px solid #ef4444; }
+.stage-prospect {
+  border-top: 3px solid #3b82f6;
+}
+
+.stage-qualified {
+  border-top: 3px solid #f59e0b;
+}
+
+.stage-proposal {
+  border-top: 3px solid #8b5cf6;
+}
+
+.stage-negotiation {
+  border-top: 3px solid #06b6d4;
+}
+
+.stage-won {
+  border-top: 3px solid #22c55e;
+}
+
+.stage-lost {
+  border-top: 3px solid #ef4444;
+}
 
 /* ─── Calendar event types ─── */
-.event-follow_up { border-left: 3px solid #f59e0b; }
-.event-meeting   { border-left: 3px solid #6366f1; }
-.event-call      { border-left: 3px solid #3b82f6; }
-.event-demo      { border-left: 3px solid #8b5cf6; }
-.event-other     { border-left: 3px solid #6b7280; }
+.event-follow_up {
+  border-left: 3px solid #f59e0b;
+}
+
+.event-meeting {
+  border-left: 3px solid #6366f1;
+}
+
+.event-call {
+  border-left: 3px solid #3b82f6;
+}
+
+.event-demo {
+  border-left: 3px solid #8b5cf6;
+}
+
+.event-other {
+  border-left: 3px solid #6b7280;
+}
 
 /* ─── Animations ─── */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-@keyframes slideIn {
-  from { opacity: 0; transform: translateX(-12px); }
-  to   { opacity: 1; transform: translateX(0); }
-}
-@keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 15px rgba(99, 102, 241, 0.2); }
-  50%      { box-shadow: 0 0 30px rgba(99, 102, 241, 0.4); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.animate-fade-in { animation: fadeIn 0.4s ease forwards; }
-.animate-slide-in { animation: slideIn 0.3s ease forwards; }
-.animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse-glow {
+
+  0%,
+  100% {
+    box-shadow: 0 0 15px rgba(234, 88, 12, 0.2);
+  }
+
+  50% {
+    box-shadow: 0 0 30px rgba(234, 88, 12, 0.4);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease forwards;
+}
+
+.animate-slide-in {
+  animation: slideIn 0.3s ease forwards;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
 
 /* ─── Utility ─── */
 .text-gradient {

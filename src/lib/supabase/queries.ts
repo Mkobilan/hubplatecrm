@@ -173,3 +173,15 @@ export async function getDashboardStats(): Promise<DashboardStats> {
         upcomingEvents,
     };
 }
+
+// ─── PROFILES ───
+export async function updateProfile(id: string, profile: { full_name: string; role: string; team: string }) {
+    const { data, error } = await supabase
+        .from('profiles')
+        .update(profile)
+        .eq('id', id)
+        .select()
+        .single();
+    if (error) throw error;
+    return data;
+}

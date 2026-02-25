@@ -36,14 +36,15 @@ export default function Sidebar() {
     return (
         <aside className="fixed left-0 top-0 z-40 flex h-screen w-64 flex-col border-r border-[var(--color-glass-border)] bg-[var(--color-surface-800)]">
             {/* Logo */}
-            <div className="flex items-center gap-3 px-6 py-6">
-                <div className="glow-gradient flex h-10 w-10 items-center justify-center rounded-xl">
-                    <Zap className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                    <h1 className="text-lg font-bold text-[var(--color-text-primary)]">HubPlate</h1>
-                    <p className="text-xs text-[var(--color-text-muted)]">Sales CRM</p>
-                </div>
+            <div className="flex flex-col px-6 py-6">
+                <img
+                    src="/Hubplatelogo.PNG"
+                    alt="HubPlate Logo"
+                    className="h-12 w-auto object-contain mb-1 self-start"
+                />
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-muted)] ml-1">
+                    Sales CRM
+                </p>
             </div>
 
             {/* Navigation */}

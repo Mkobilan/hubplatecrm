@@ -37,12 +37,16 @@ export default function LoginPage() {
             <div className="w-full max-w-md space-y-8 animate-fade-in">
                 {/* Logo & Header */}
                 <div className="text-center">
-                    <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl glow-gradient animate-pulse-glow">
-                        <Zap className="h-8 w-8 text-white" />
+                    <div className="mb-8 flex flex-col items-center">
+                        <img
+                            src="/Hubplatelogo.PNG"
+                            alt="HubPlate Logo"
+                            className="h-16 w-auto object-contain mb-2"
+                        />
+                        <p className="text-xs font-bold uppercase tracking-widest text-[var(--color-text-muted)]">
+                            Sales CRM
+                        </p>
                     </div>
-                    <h1 className="mt-6 text-3xl font-bold tracking-tight text-white">
-                        Welcome back to <span className="text-gradient">HubPlate</span>
-                    </h1>
                     <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
                         Sign in to manage your sales pipeline
                     </p>

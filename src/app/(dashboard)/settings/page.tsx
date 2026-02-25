@@ -2,17 +2,22 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { updateProfile } from '@/lib/supabase/queries';
 import { Settings, User, Bell, Shield, Palette, Loader2 } from 'lucide-react';
 
 export default function SettingsPage() {
     const [profile, setProfile] = useState<{ full_name: string; email: string; role: string; team: string } | null>(null);
+    const [userId, setUserId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const supabase = createClient();
 
     useEffect(() => {
         async function loadProfile() {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
+                setUserId(user.id);
                 // Fetch profile from our profiles table
                 const { data: profileData } = await supabase
                     .from('profiles')
@@ -32,6 +37,32 @@ export default function SettingsPage() {
         loadProfile();
     }, [supabase]);
 
+    const updateProfile = async (id: string, updates: { full_name?: string; role?: string; team?: string }) => {
+        const { error } = await supabase
+            .from('profiles')
+            .update(updates)
+            .eq('id', id);
+        if (error) throw error;
+    };
+
+    const handleSave = async () => {
+        if (!userId || !profile) return;
+        setSaving(true);
+        setMessage(null);
+        try {
+            await updateProfile(userId, {
+                full_name: profile.full_name,
+                role: profile.role,
+                team: profile.team
+            });
+            setMessage({ type: 'success', text: 'Profile updated successfully!' });
+        } catch (error: any) {
+            setMessage({ type: 'error', text: error.message || 'Failed to update profile' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
     if (loading) {
         return (
             <div className="flex h-full items-center justify-center">
@@ -47,6 +78,12 @@ export default function SettingsPage() {
                 <p className="text-[var(--color-text-secondary)]">Manage your account and preferences</p>
             </div>
 
+            {message && (
+                <div className={`p-4 rounded-xl text-sm font-medium ${message.type === 'success' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
+                    {message.text}
+                </div>
+            )}
+
             {/* Profile */}
             <div className="glass-card p-6">
                 <div className="flex items-center gap-3 mb-6">
@@ -56,22 +93,42 @@ export default function SettingsPage() {
                     <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Profile</h2>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                    {[
-                        { label: 'Full Name', val: profile?.full_name },
-                        { label: 'Email', val: profile?.email },
-                        { label: 'Role', val: profile?.role },
-                        { label: 'Team', val: profile?.team },
-                    ].map(({ label, val }) => (
-                        <div key={label}>
-                            <label className="mb-1 block text-xs text-[var(--color-text-muted)]">{label}</label>
-                            <input
-                                type="text"
-                                defaultValue={val}
-                                disabled={label === 'Email'}
-                                className="w-full rounded-lg border border-[var(--color-glass-border)] bg-[var(--color-surface-700)] py-2 px-3 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-500)] transition-colors disabled:opacity-50"
-                            />
-                        </div>
-                    ))}
+                    <div>
+                        <label className="mb-1 block text-xs text-[var(--color-text-muted)]">Full Name</label>
+                        <input
+                            type="text"
+                            value={profile?.full_name || ''}
+                            onChange={(e) => setProfile(p => p ? { ...p, full_name: e.target.value } : null)}
+                            className="w-full rounded-lg border border-[var(--color-glass-border)] bg-[var(--color-surface-700)] py-2 px-3 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-500)] transition-colors"
+                        />
+                    </div>
+                    <div>
+                        <label className="mb-1 block text-xs text-[var(--color-text-muted)]">Email</label>
+                        <input
+                            type="text"
+                            value={profile?.email || ''}
+                            disabled
+                            className="w-full rounded-lg border border-[var(--color-glass-border)] bg-[var(--color-surface-700)] py-2 px-3 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-500)] transition-colors disabled:opacity-50"
+                        />
+                    </div>
+                    <div>
+                        <label className="mb-1 block text-xs text-[var(--color-text-muted)]">Role</label>
+                        <input
+                            type="text"
+                            value={profile?.role || ''}
+                            onChange={(e) => setProfile(p => p ? { ...p, role: e.target.value } : null)}
+                            className="w-full rounded-lg border border-[var(--color-glass-border)] bg-[var(--color-surface-700)] py-2 px-3 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-500)] transition-colors"
+                        />
+                    </div>
+                    <div>
+                        <label className="mb-1 block text-xs text-[var(--color-text-muted)]">Team</label>
+                        <input
+                            type="text"
+                            value={profile?.team || ''}
+                            onChange={(e) => setProfile(p => p ? { ...p, team: e.target.value } : null)}
+                            className="w-full rounded-lg border border-[var(--color-glass-border)] bg-[var(--color-surface-700)] py-2 px-3 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand-500)] transition-colors"
+                        />
+                    </div>
                 </div>
             </div>
 
@@ -127,8 +184,13 @@ export default function SettingsPage() {
 
             {/* Save */}
             <div className="flex justify-end">
-                <button className="glow-gradient rounded-xl px-6 py-2.5 text-sm font-semibold text-white transition-all hover:scale-105 active:scale-95">
-                    Save Changes
+                <button
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="glow-gradient rounded-xl px-6 py-2.5 text-sm font-semibold text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-50 flex items-center gap-2"
+                >
+                    {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {saving ? 'Saving...' : 'Save Changes'}
                 </button>
             </div>
         </div>
